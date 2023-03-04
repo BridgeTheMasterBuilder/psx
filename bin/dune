@@ -1,4 +1,4 @@
 (executable
  (public_name psx)
  (name main)
- (libraries psx))
+ (libraries psx cmdliner))

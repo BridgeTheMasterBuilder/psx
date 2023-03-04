@@ -19,7 +19,17 @@
  (name psx)
  (synopsis "A short synopsis")
  (description "A longer description")
- (depends ocaml dune)
+ (depends
+  ocaml
+  dune
+  (cmdliner
+   (>= 1.1.1))
+  (tsdl
+   (>= 0.9.9))
+  (containers
+   (>= 3.11))
+  (lwt
+   (>= 5.6.1)))
  (tags
   (topics "to describe" your project)))
 
