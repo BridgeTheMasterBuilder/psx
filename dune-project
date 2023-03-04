@@ -22,6 +22,7 @@
  (depends
   ocaml
   dune
+  util
   (cmdliner
    (>= 1.1.1))
   (tsdl

@@ -12,6 +12,7 @@ bug-reports: "https://github.com/username/reponame/issues"
 depends: [
   "ocaml"
   "dune" {>= "3.7"}
+  "util"
   "cmdliner" {>= "1.1.1"}
   "tsdl" {>= "0.9.9"}
   "containers" {>= "3.11"}
