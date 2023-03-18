@@ -57,19 +57,18 @@ let main =
         Sdl.Texture.access_streaming ~w:Vram.w ~h:Vram.h
       |> unwrap
     in
-
     at_exit (fun () -> Sdl.destroy_texture texture);
 
-    (* let iso_data =
-      CCIO.(
-        with_in iso (fun ic ->
+    let bios =
+       CCIO.(
+        with_in "/home/master/projects/psx/SCPH1001.BIN" (fun ic ->
             let fd = Unix.descr_of_in_channel ic in
-            Lwt_bytes.map_file ~fd ~shared:false ()))
-    in *)
-    (* Psx.load_iso iso_data; *)
+            Unix.map_file fd Bigarray.Int32 Bigarray.C_layout false [|(512 * 1024) / 4|]))
+       in
+    Ram.load_bios bios;
     run renderer texture
   with
   | SdlError e ->
-      Sdl.log_error Sdl.Log.category_application "%s" e;
-      exit 1
+    Sdl.log_error Sdl.Log.category_application "%s" e;
+    exit 1
   | Exit -> ()

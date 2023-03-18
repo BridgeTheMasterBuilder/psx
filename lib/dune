@@ -1,4 +1,4 @@
 (library
  (name psx_lib)
- (modules psx r3000 ram vram)
+ (modules psx r3000 ram vram bus)
  (libraries containers lwt.unix util))
