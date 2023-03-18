@@ -29,8 +29,8 @@
    (>= 0.9.9))
   (containers
    (>= 3.11))
-  (lwt
-   (>= 5.6.1)))
+  (ppx_deriving
+   (>= 5.2.1)))
  (tags
   (topics "to describe" your project)))
 
