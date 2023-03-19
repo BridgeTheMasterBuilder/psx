@@ -1,5 +1,6 @@
 (* open Util *)
 open Tsdl
+open Insn
 
 type state = Running
 type t = { regs : int array; mutable pc : int }
@@ -16,5 +17,8 @@ let fetch = read_u32
 let fetch_decode_execute () =
   let word = fetch () in
   let insn = Insn.decode word in
-  Sdl.(log_debug Log.category_application "%s" (Insn.show_itype insn));
-  match insn with _ -> ()
+  match insn with
+  | Itype { op = Invalid; _ } -> ()
+  | Rtype { op = Sll; rs = Zero; rt = Zero; rd = Zero; shamt = 0 } ->
+      Sdl.(log_debug Log.category_application "NOP")
+  | _ -> Sdl.(log_debug Log.category_application "%s" (Insn.show_insn insn))
