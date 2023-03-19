@@ -1,6 +1,6 @@
 (library
  (name psx_lib)
- (modules psx r3000 ram vram bus bios insn)
+ (modules psx r3000 ram vram bus bios insn register)
  (preprocess
   (pps ppx_deriving.show))
  (libraries containers util tsdl))

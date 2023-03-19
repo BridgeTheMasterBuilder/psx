@@ -17,4 +17,4 @@ let fetch_decode_execute () =
   let word = fetch () in
   let insn = Insn.decode word in
   Sdl.(log_debug Log.category_application "%s" (Insn.show_itype insn));
-  match insn with { op = Lui; rs; rt; immediate } -> ()
+  match insn with _ -> ()
