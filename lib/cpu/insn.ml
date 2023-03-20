@@ -45,6 +45,9 @@ type mnemonic =
   | Ori
   | Xori
   | Lui
+  | Mfc0
+  | Mtc0
+  | Rfe
   | Lb
   | Lh
   | Lwl
@@ -75,6 +78,7 @@ type insn =
       rd : Register.t;
       shamt : int;
     }
+  | Cop0 of { op : mnemonic; rt : Register.t; rd : Register.t }
 [@@deriving show]
 
 let itype_opcode_map =
@@ -176,4 +180,25 @@ let rtype_opcode_map =
     Invalid;
     Slt;
     Sltu;
+  |]
+
+let cop0_opcode_map =
+  [|
+    Mfc0;
+    Invalid;
+    Invalid;
+    Invalid;
+    Mtc0;
+    Invalid;
+    Invalid;
+    Invalid;
+    Invalid;
+    Invalid;
+    Invalid;
+    Invalid;
+    Invalid;
+    Invalid;
+    Invalid;
+    Invalid;
+    Rfe;
   |]

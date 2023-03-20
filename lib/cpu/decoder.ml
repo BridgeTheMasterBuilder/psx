@@ -17,6 +17,12 @@ let decode_rtype opcode word =
   let shamt = bits word 6 10 in
   Rtype { op; rs; rt; rd; shamt }
 
+let decode_cop0 opcode word =
+  let op = cop0_opcode_map.(opcode) in
+  let rt = bits word 16 20 |> Register.of_int in
+  let rd = bits word 11 15 |> Register.of_int in
+  Cop0 { op; rt; rd }
+
 (* TODO reserved instruction exception excode 0Ah *)
 let decode word =
   let opcode = bits word 26 31 in
@@ -31,8 +37,11 @@ let decode word =
       Jtype { op = jtype_opcode_map.(opcode - 2); target = bits_abs word 0 25 }
   | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15 | 32 | 33 | 34 | 35 | 36
   | 37 | 38 | 40 | 41 | 42 | 43 | 46 ->
-      decode_itype opcode word (* TODO *)
-  | 24 -> failwith "COP0 instructions unimplemented"
+      decode_itype opcode word
+  | 16 ->
+      let opcode = bits word 21 25 in
+      decode_cop0 opcode word
+  | 17 -> failwith "COP1 not present" (* TODO exception *)
   | _ -> failwith (Printf.sprintf "Unknown opcode %X" opcode)
 (* | _ ->
     Sdl.(log_error Log.category_application "Unknown opcode %X" opcode);

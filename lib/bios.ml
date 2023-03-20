@@ -1,10 +1,11 @@
 open Bigarray
 
-let rom =
-  Array1.create Bigarray.Int32 Bigarray.C_layout ((512 * 1024) / 4)
+let bios_size = 512 * 1024 / 4
+let rom = Array1.create Bigarray.int Bigarray.C_layout bios_size
 
 let load bios =
-  Array1.blit bios rom
+  for i = 0 to bios_size - 1 do
+    Array1.set rom i (Array1.get bios i |> Int32.to_int)
+  done
 
-let read_u32 addr = 
-  (Array1.get rom addr |> Int32.to_int) land 0xFFFFFFFF
+let read_u32 addr = Array1.get rom addr land 0xFFFFFFFF
