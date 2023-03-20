@@ -1,6 +1,8 @@
+(include_subdirs unqualified)
+
 (library
  (name psx_lib)
- (modules psx r3000 ram vram bus bios register insn)
+ (modules psx r3000 ram vram bus bios register insn decoder)
  (preprocess
   (pps ppx_deriving.show))
  (libraries containers util tsdl))

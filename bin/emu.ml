@@ -40,8 +40,9 @@ let run renderer framebuffer =
     Sdl.render_copy renderer framebuffer |> unwrap |> ignore;
     Sdl.render_present renderer;
     let frame_end = Unix.gettimeofday () in
-    ()
-    (* Printf.printf "%f fps\n" (1.0 /. (frame_end -. frame_start)) *)
+    Sdl.(
+      log_debug Log.category_application "%f fps\n"
+        (1.0 /. (frame_end -. frame_start)))
   done
 
 let main =

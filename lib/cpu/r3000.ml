@@ -16,7 +16,7 @@ let fetch = read_u32
 
 let fetch_decode_execute () =
   let word = fetch () in
-  let insn = Insn.decode word in
+  let insn = Decoder.decode word in
   match insn with
   | Itype { op = Invalid; _ } -> ()
   | Rtype { op = Sll; rs = Zero; rt = Zero; rd = Zero; shamt = 0 } ->
