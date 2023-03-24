@@ -7,6 +7,7 @@ open Psx_lib
 let bios_path = "/home/master/projects/psx/SCPH1001.BIN"
 let w = 640
 let h = 480
+let debug = true
 
 let map_file_array1 path =
   CCIO.(
@@ -40,10 +41,20 @@ let run renderer framebuffer =
     Sdl.render_copy renderer framebuffer |> unwrap |> ignore;
     Sdl.render_present renderer;
     let frame_end = Unix.gettimeofday () in
-    Sdl.(
-      log_debug Log.category_application "%f fps\n"
-        (1.0 /. (frame_end -. frame_start)))
+    ()
+    (* Sdl.(
+       log_debug Log.category_application "%f fps\n"
+         (1.0 /. (frame_end -. frame_start))) *)
   done
+
+let wait_for_debugger () =
+  let open Unix in
+  let server = Unix.socket PF_INET SOCK_STREAM 0 in
+  let addr = inet_addr_loopback in
+  bind server (ADDR_INET (addr, 1234));
+  listen server 1;
+  let client, _ = accept server in
+  client
 
 let main =
   try
@@ -72,6 +83,19 @@ let main =
 
     let bios = map_file_array1 bios_path in
     Bios.load bios;
+    (* TODO debugger module, server in another thread *)
+    let client =
+      if debug then (
+        let client = wait_for_debugger () in
+        let inbuf = Bytes.create 512 in
+        let outbuf = Bytes.of_string "+" in
+        let received = Unix.recv client inbuf 0 512 [] in
+        if received > 0 then (
+          print_endline (Bytes.sub_string inbuf 0 received);
+          Unix.send client outbuf 0 1 [] |> ignore);
+        Some client)
+      else None
+    in
     run renderer texture
   with
   | SdlError e ->
