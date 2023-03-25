@@ -2,7 +2,7 @@
 
 (library
  (name psx_lib)
- (modules psx r3000 ram vram bus bios register insn decoder)
+ (modules psx r3000 ram vram bus bios register insn decoder debugger)
  (preprocess
   (pps ppx_deriving.show))
  (libraries containers util tsdl))
