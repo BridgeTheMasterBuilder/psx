@@ -24,3 +24,6 @@ let fetch_decode_execute () =
       Sdl.(log_debug Log.category_application "NOP")
   | _ -> Sdl.(log_debug Log.category_application "%s" (Insn.show_insn insn)));
   Running
+
+let dump_registers () =
+  Array.to_list state.regs @ [ 0; 0; 0; 0; 0; state.pc; 0; 0; 0 ]

@@ -8,6 +8,7 @@ type packet =
     | QueryHaltReason
     | ReadGeneralRegisters
     | ReadMemory of addr * length
+    | QSupported of string list
     | Unimplemented
 
 type message = 
@@ -29,11 +30,12 @@ let sanity_check data checksum =
 
 let hex_digit = ['0'-'9''A'-'F''a'-'f']
 let checksum = hex_digit hex_digit
+let gdbfeature = [^';''#']+
 
 rule lex = parse 
 | '+' { Acknowledge }
 | '-' { RequestRetransmission }
-| "+$?#" (checksum as cs) { sanity_check "?" cs; Packet QueryHaltReason }
-| _ { Packet Unimplemented }
-(* TODO Refill handler? *)
-| eof { raise_notrace Refill }
+| "$?#" (checksum as cs) { sanity_check "?" cs; Packet QueryHaltReason }
+| "$g#" (checksum as cs) { sanity_check "g" cs; Packet ReadGeneralRegisters }
+| "$qSupported:" ((gdbfeature (';' gdbfeature)+) as gdbfeatures) '#' (checksum as cs) { sanity_check ("qSupported:" ^ gdbfeatures) cs; let features = (String.split_on_char ';' gdbfeatures) in Packet (QSupported features) } 
+| "$" [^'#']* '#' checksum { Packet Unimplemented }
