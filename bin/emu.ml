@@ -74,7 +74,6 @@ let main =
 
     let bios = map_file_array1 bios_path in
     Bios.load bios;
-    (* TODO debugger module, server in another thread *)
     Debugger.connect ();
     run renderer texture
   with

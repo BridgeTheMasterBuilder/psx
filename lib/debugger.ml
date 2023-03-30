@@ -31,6 +31,9 @@ let string_of_registers registers =
           (bits reg 16 23) (bits reg 24 31))
     "" registers
 
+let string_of_memory bytes =
+  List.fold_left (fun accum byte -> accum ^ Printf.sprintf "%02x" byte) "" bytes
+
 let connect () =
   let client = wait_for_connection () in
   let channel = Unix.in_channel_of_descr client in
@@ -48,6 +51,9 @@ let connect () =
         | Packet ReadGeneralRegisters ->
             let registers = R3000.dump_registers () in
             respond client (string_of_registers registers)
+        | Packet (ReadMemory (addr, length)) ->
+            let memory = List.init length (fun i -> Bus.read_u8 (addr + i)) in
+            respond client (string_of_memory memory)
         | Packet (QSupported _features) -> respond client ""
         | _ -> respond client ""
       done)

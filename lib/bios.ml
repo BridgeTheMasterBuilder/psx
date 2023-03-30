@@ -8,4 +8,5 @@ let load bios =
     Array1.set rom i (Array1.get bios i |> Int32.to_int)
   done
 
-let read_u32 addr = Array1.get rom addr land 0xFFFFFFFF
+let read_u32 = Mem.read_u32 rom
+let read_u8 = Mem.read_u8 rom

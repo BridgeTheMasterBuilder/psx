@@ -4,7 +4,19 @@
 
 (library
  (name psx_lib)
- (modules psx r3000 ram vram bus bios register insn decoder debugger lexer)
+ (modules
+  psx
+  r3000
+  ram
+  vram
+  bus
+  bios
+  register
+  insn
+  decoder
+  debugger
+  lexer
+  mem)
  (preprocess
   (pps ppx_deriving.show))
  (libraries containers util tsdl))
