@@ -40,6 +40,7 @@ let connect () =
   Thread.create
     (fun _ ->
       let lexbuf = ref (Lexing.from_channel channel) in
+      let breakpoints = ref [] in
       let open Lexer in
       while !running do
         let command = lex !lexbuf in
@@ -51,10 +52,23 @@ let connect () =
         | Packet ReadGeneralRegisters ->
             let registers = R3000.dump_registers () in
             respond client (string_of_registers registers)
-        | Packet (ReadMemory (addr, length)) ->
+        | Packet (ReadMemory { addr; length }) ->
             let memory = List.init length (fun i -> Bus.read_u8 (addr + i)) in
             respond client (string_of_memory memory)
+        | Packet (WriteMemory { addr; length; data }) ->
+            (* let memory = List.init length (fun i -> Bus.read_u8 (addr + i)) in
+               respond client (string_of_memory memory) *)
+            respond client "E00"
         | Packet (QSupported _features) -> respond client ""
+        | Packet Kill ->
+            respond client "";
+            running := false;
+            Psx.running := false
+        | Packet (Step None) ->
+            R3000.fetch_decode_execute () |> ignore;
+            respond client "S05"
+        | Packet (Step (Some addr)) -> ()
+        | Packet (SwBreak { addr; _ }) -> breakpoints := addr :: !breakpoints
         | _ -> respond client ""
       done)
     ()

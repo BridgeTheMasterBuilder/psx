@@ -1,14 +1,15 @@
 {
 exception Refill
 
-type addr = int
-type length = int
-
 type packet =
     | QueryHaltReason
     | ReadGeneralRegisters
-    | ReadMemory of addr * length
+    | ReadMemory of { addr: int; length: int }
+    | WriteMemory of { addr: int; length: int; data: int }
     | QSupported of string list
+    | Kill
+    | Step of int option
+    | SwBreak of { addr: int; kind: int }
     | Unimplemented
 
 type message = 
@@ -39,6 +40,34 @@ rule lex = parse
 | '-' { RequestRetransmission }
 | "$?#" (checksum as cs) { sanity_check "?" cs; Packet QueryHaltReason }
 | "$g#" (checksum as cs) { sanity_check "g" cs; Packet ReadGeneralRegisters }
-| "$qSupported:" ((gdbfeature (';' gdbfeature)+) as gdbfeatures) '#' (checksum as cs) { sanity_check ("qSupported:" ^ gdbfeatures) cs; let features = (String.split_on_char ';' gdbfeatures) in Packet (QSupported features) } 
-| "$m" (hex_digit+ as addr) ',' (hex_digit+ as length) '#' (checksum as cs) { sanity_check (Printf.sprintf "m%s,%s" addr length) cs; let addr = parse_hex addr in let length = parse_hex length in Packet (ReadMemory (addr, length)) } 
+| "$qSupported:" ((gdbfeature (';' gdbfeature)+) as gdbfeatures) '#' (checksum as cs) { 
+    sanity_check ("qSupported:" ^ gdbfeatures) cs; 
+    let features = (String.split_on_char ';' gdbfeatures) in 
+    Packet (QSupported features) 
+} 
+| "$m" (hex_digit+ as addr) ',' (hex_digit+ as length) '#' (checksum as cs) { 
+    sanity_check (Printf.sprintf "m%s,%s" addr length) cs; 
+    let addr = parse_hex addr in 
+    let length = parse_hex length in 
+    Packet (ReadMemory { addr; length }) 
+} 
+| "$M" (hex_digit+ as addr) ',' (hex_digit+ as length) ':' (hex_digit+ as data) '#' (checksum as cs) { 
+    sanity_check (Printf.sprintf "M%s,%s:%s" addr length data) cs; 
+    let addr = parse_hex addr in 
+    let length = parse_hex length in 
+    let data = parse_hex data in 
+    Packet (WriteMemory { addr; length; data }) 
+} 
+| "$k#" (checksum as cs) { sanity_check "k" cs; Packet Kill } 
+(* | "$s" (hex_digit+ as addr)? '#' (checksum as cs) { 
+    match addr with 
+|   Some addr -> sanity_check ("s" ^ addr) cs; let addr = parse_hex addr in Packet (Step (Some addr))
+|   None -> Packet (Step None) 
+} *)
+| "$Z0," (hex_digit+ as addr) ',' (hex_digit+ as kind) '#' (checksum as cs) { 
+    sanity_check (Printf.sprintf "Z0,%s,%s" addr kind) cs; 
+    let addr = parse_hex addr in 
+    let kind = parse_hex kind in 
+    Packet (SwBreak { addr; kind }) 
+} 
 | "$" [^'#']* '#' checksum { Packet Unimplemented }
