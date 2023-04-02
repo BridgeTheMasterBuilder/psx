@@ -17,8 +17,7 @@ let map_file_array1 path =
         Unix.map_file fd Int32 C_layout false [| -1 |] |> array1_of_genarray))
 
 let terminate () = raise_notrace Exit
-
-let run renderer texture = Psx.run renderer texture 
+let run renderer texture = Psx.run renderer texture
 
 let init () =
   try
@@ -53,4 +52,3 @@ let init () =
   with SdlError e ->
     Sdl.log_error Sdl.Log.category_application "%s" e;
     exit 1
-

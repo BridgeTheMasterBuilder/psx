@@ -1,12 +1,13 @@
 open Util
 
 let buffer_size = 512
+let port = ref 1234
 
 let wait_for_connection () =
   let open Unix in
   let server = Unix.socket PF_INET SOCK_STREAM 0 in
   let addr = inet_addr_loopback in
-  bind server (ADDR_INET (addr, 1235));
+  bind server (ADDR_INET (addr, !port));
   listen server 1;
   let client, _ = accept server in
   client
@@ -35,6 +36,12 @@ let string_of_memory bytes =
   List.fold_left (fun accum byte -> accum ^ Printf.sprintf "%02x" byte) "" bytes
 
 let connect () =
+  if Unix.fork () = 0 then
+    Sys.command
+      ("alacritty -e gdb-multiarch -q -ex 'set architecture mips:3000' -ex \
+        'set debug remote 1' -ex 'target remote localhost:"
+     ^ string_of_int !port ^ "' -ex 'x/5i $pc' -ex 'set pagination off'")
+    |> ignore;
   let client = wait_for_connection () in
   let channel = Unix.in_channel_of_descr client in
   Psx.state := Halted;
@@ -59,7 +66,7 @@ let connect () =
             (* let memory = List.init length (fun i -> Bus.read_u8 (addr + i)) in
                respond client (string_of_memory memory) *)
             respond client "E00"
-        | Packet (QSupported _features) -> respond client ""
+        | Packet (QSupported _features) -> respond client "swbreak+;hwbreak+"
         | Packet Kill ->
             respond client "";
             running := false;

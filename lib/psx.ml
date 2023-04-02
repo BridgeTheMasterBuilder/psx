@@ -34,18 +34,22 @@ let render renderer framebuffer =
   Sdl.render_copy renderer framebuffer |> unwrap |> ignore;
   Sdl.render_present renderer
 
+let update () =
+  state :=
+    match !state with
+    | Running ->
+        R3000.fetch_decode_execute ();
+        Running
+    | state -> state
+
+(* TODO debug vs non-debug versions *)
 let run renderer framebuffer =
   if not !running then terminate ();
   (* let frame_start = Unix.gettimeofday () in *)
   let pc = R3000.pc () in
   handle_input ();
   if List.mem pc !breakpoints then state := Breakpoint;
-  (state :=
-     match !state with
-     | Running ->
-         R3000.fetch_decode_execute ();
-         Running
-     | state -> state);
+  update ();
   render renderer framebuffer;
   (* Psx.(match run () with _ -> ()); *)
   (* let frame_end = Unix.gettimeofday () in *)

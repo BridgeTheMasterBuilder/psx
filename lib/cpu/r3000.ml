@@ -18,16 +18,15 @@ let fetch () =
   state.next_pc <- (state.next_pc + 4) land 0xFFFFFFFF;
   Bus.read_u32 pc
 
+let pc () = state.cur_pc
+
 let fetch_decode_execute () =
+  let pc = pc () in
   let word = fetch () in
   let insn = Decoder.decode word in
   match insn with
   | Itype { op = Invalid; _ } -> ()
   | Rtype { op = Sll; rs = Zero; rt = Zero; rd = Zero; shamt = 0 } ->
-      Sdl.(log_debug Log.category_application "%X: NOP" state.cur_pc)
+      Sdl.(log_debug Log.category_application "%X: NOP" pc)
   | _ ->
-      Sdl.(
-        log_debug Log.category_application "%X: %s" state.cur_pc
-          (Insn.show_insn insn))
-
-let pc () = state.cur_pc
+      Sdl.(log_debug Log.category_application "%X: %s" pc (Insn.show_insn insn))
