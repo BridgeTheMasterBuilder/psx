@@ -64,10 +64,10 @@ let connect () =
             respond client "";
             running := false;
             Psx.running := false
-        | Packet (Step None) ->
+        (* | Packet (Step None) ->
             R3000.fetch_decode_execute () |> ignore;
-            respond client "S05"
-        | Packet (Step (Some addr)) -> ()
+            respond client "S05" *)
+        (* | Packet (Step (Some addr)) -> () *)
         | Packet (SwBreak { addr; _ }) -> breakpoints := addr :: !breakpoints
         | _ -> respond client ""
       done)
