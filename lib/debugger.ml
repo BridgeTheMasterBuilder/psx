@@ -6,7 +6,7 @@ let wait_for_connection () =
   let open Unix in
   let server = Unix.socket PF_INET SOCK_STREAM 0 in
   let addr = inet_addr_loopback in
-  bind server (ADDR_INET (addr, 1234));
+  bind server (ADDR_INET (addr, 1235));
   listen server 1;
   let client, _ = accept server in
   client
@@ -37,10 +37,10 @@ let string_of_memory bytes =
 let connect () =
   let client = wait_for_connection () in
   let channel = Unix.in_channel_of_descr client in
+  Psx.state := Halted;
   Thread.create
     (fun _ ->
       let lexbuf = ref (Lexing.from_channel channel) in
-      let breakpoints = ref [] in
       let open Lexer in
       while !running do
         let command = lex !lexbuf in
@@ -68,7 +68,22 @@ let connect () =
             R3000.fetch_decode_execute () |> ignore;
             respond client "S05" *)
         (* | Packet (Step (Some addr)) -> () *)
-        | Packet (SwBreak { addr; _ }) -> breakpoints := addr :: !breakpoints
+        | Packet (InsertSwBreak { addr; _ }) ->
+            Psx.breakpoints := addr :: !Psx.breakpoints;
+            respond client "OK"
+        | Packet (RemoveSwBreak { addr; _ }) ->
+            Psx.breakpoints :=
+              List.filter
+                (fun breakpoint -> breakpoint <> addr)
+                !Psx.breakpoints;
+            respond client "OK"
+        | Packet Continue ->
+            Psx.state := Running;
+            while !Psx.state <> Breakpoint do
+              Unix.sleepf 0.5
+            done;
+            respond client "S05";
+            Unix.send client (Bytes.of_string "+") 0 1 [] |> ignore
         | _ -> respond client ""
       done)
     ()

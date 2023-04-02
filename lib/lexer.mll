@@ -9,7 +9,9 @@ type packet =
     | QSupported of string list
     | Kill
     | Step of int option
-    | SwBreak of { addr: int; kind: int }
+    | InsertSwBreak of { addr: int; kind: int; }
+    | RemoveSwBreak of { addr: int; kind: int; }
+    | Continue
     | Unimplemented
 
 type message = 
@@ -68,6 +70,13 @@ rule lex = parse
     sanity_check (Printf.sprintf "Z0,%s,%s" addr kind) cs; 
     let addr = parse_hex addr in 
     let kind = parse_hex kind in 
-    Packet (SwBreak { addr; kind }) 
+    Packet (InsertSwBreak { addr; kind }) 
 } 
+| "$z0," (hex_digit+ as addr) ',' (hex_digit+ as kind) '#' (checksum as cs) { 
+    sanity_check (Printf.sprintf "z0,%s,%s" addr kind) cs; 
+    let addr = parse_hex addr in 
+    let kind = parse_hex kind in 
+    Packet (RemoveSwBreak { addr; kind }) 
+} 
+| "$c#" (checksum as cs) { sanity_check "c" cs; Packet Continue } 
 | "$" [^'#']* '#' checksum { Packet Unimplemented }

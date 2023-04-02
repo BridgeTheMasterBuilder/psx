@@ -7,8 +7,7 @@ let main =
     while true do
       Emu.run renderer framebuffer
     done
-  with Exit -> 
-    Debugger.running := false
+  with Exit -> Debugger.running := false
 
 let parse_args () =
   (* let rom = Arg.(required & pos 0 (some string) None & info [] ~docv:"ISO") in *)
