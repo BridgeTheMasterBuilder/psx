@@ -63,24 +63,6 @@ type mnemonic =
   | Invalid
 [@@deriving show]
 
-type insn =
-  | Itype of {
-      op : mnemonic;
-      rs : Register.t;
-      rt : Register.t;
-      immediate : int;
-    }
-  | Jtype of { op : mnemonic; target : int }
-  | Rtype of {
-      op : mnemonic;
-      rs : Register.t;
-      rt : Register.t;
-      rd : Register.t;
-      shamt : int;
-    }
-  | Cop0 of { op : mnemonic; rt : Register.t; rd : Register.t }
-[@@deriving show]
-
 let itype_opcode_map =
   [|
     Bltz;
@@ -132,7 +114,7 @@ let itype_opcode_map =
     Swr;
   |]
 
-let jtype_opcode_map = [| J; Jal |]
+let jtype_opcode_map = [| Invalid; Invalid; J; Jal |]
 
 let rtype_opcode_map =
   [|
@@ -202,3 +184,50 @@ let cop0_opcode_map =
     Invalid;
     Rfe;
   |]
+
+type insn =
+  | Itype of {
+      op : int;
+          [@printer
+            fun fmt op -> fprintf fmt "%s" (show_mnemonic itype_opcode_map.(op))]
+      rs : int;
+          [@printer
+            fun fmt reg -> fprintf fmt "%s" Register.(show (of_int reg))]
+      rt : int;
+          [@printer
+            fun fmt reg -> fprintf fmt "%s" Register.(show (of_int reg))]
+      immediate : int;
+    }
+  | Jtype of {
+      op : int;
+          [@printer
+            fun fmt op -> fprintf fmt "%s" (show_mnemonic jtype_opcode_map.(op))]
+      target : int;
+    }
+  | Rtype of {
+      op : int;
+          [@printer
+            fun fmt op -> fprintf fmt "%s" (show_mnemonic rtype_opcode_map.(op))]
+      rs : int;
+          [@printer
+            fun fmt reg -> fprintf fmt "%s" Register.(show (of_int reg))]
+      rt : int;
+          [@printer
+            fun fmt reg -> fprintf fmt "%s" Register.(show (of_int reg))]
+      rd : int;
+          [@printer
+            fun fmt reg -> fprintf fmt "%s" Register.(show (of_int reg))]
+      shamt : int;
+    }
+  | Cop0 of {
+      op : int;
+          [@printer
+            fun fmt op -> fprintf fmt "%s" (show_mnemonic cop0_opcode_map.(op))]
+      rt : int;
+          [@printer
+            fun fmt reg -> fprintf fmt "%s" Register.(show (of_int reg))]
+      rd : int;
+          [@printer
+            fun fmt reg -> fprintf fmt "%s" Register.(show (of_int reg))]
+    }
+[@@deriving show]
