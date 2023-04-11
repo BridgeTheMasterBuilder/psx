@@ -1,13 +1,18 @@
 open Tsdl
 open Util
 
-(* let run () = R3000.fetch_decode_execute () *)
 type state = Running | Halted | Breakpoint
 
-let running = ref true
 let terminate () = raise_notrace Exit
-let state = ref Running
-let breakpoints = ref []
+
+type t = {
+  mutable state : state;
+  mutable running : bool;
+  mutable breakpoints : int list;
+  mutable cyc : int;
+}
+
+let state = { running = true; state = Running; breakpoints = []; cyc = 0 }
 
 let handle_input () =
   let event = Sdl.Event.create () in
@@ -35,20 +40,18 @@ let render renderer framebuffer =
   Sdl.render_present renderer
 
 let update () =
-  state :=
-    match !state with
-    | Running ->
-        R3000.fetch_decode_execute ();
-        Running
-    | state -> state
+  while state.state = Running && state.cyc < R3000.clockrate do
+    R3000.fetch_decode_execute ();
+    state.cyc <- state.cyc + 2
+  done
 
 (* TODO debug vs non-debug versions *)
 let run renderer framebuffer =
-  if not !running then terminate ();
+  if not state.running then terminate ();
   (* let frame_start = Unix.gettimeofday () in *)
   let pc = R3000.pc () in
   handle_input ();
-  if List.mem pc !breakpoints then state := Breakpoint;
+  if List.mem pc state.breakpoints then state.state <- Breakpoint;
   update ();
   render renderer framebuffer;
   (* Psx.(match run () with _ -> ()); *)

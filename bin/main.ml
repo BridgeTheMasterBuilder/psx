@@ -10,7 +10,7 @@ let main port =
     while true do
       Emu.run renderer framebuffer
     done
-  with Exit -> Debugger.running := false
+  with Exit -> Debugger.disconnect ()
 
 let parse_args () =
   (* let rom = Arg.(required & pos 0 (some string) None & info [] ~docv:"ISO") in *)
