@@ -1,7 +1,7 @@
 open Cmdliner
 open Psx_lib
 
-let set_port port = Debugger.port := port
+let set_port port = Debugger.state.port <- port
 
 let main port =
   set_port port;
