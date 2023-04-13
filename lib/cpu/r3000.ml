@@ -36,9 +36,23 @@ let invalid_cop0_insn op =
   failwithf "Unimplemented COP-0 instruction: %s"
     (show_mnemonic cop0_opcode_map.(op))
 
+(* TODO sign extend *)
+let addiu rs rt imm =
+  let result = state.regs.(rs) + imm in
+  state.regs.(rt) <- result
+
+let ori rs rt imm =
+  let result = state.regs.(rs) lor imm in
+  state.regs.(rt) <- result
+
 let lui _ rt imm =
   let result = imm lsl 16 in
   state.regs.(rt) <- result
+
+(* TODO sign extend offset *)
+let sw base rt off =
+  let addr = state.regs.(base) + off in
+  Bus.write_u32 addr state.regs.(rt)
 
 let itype_insn_map : (int -> int -> int -> unit) array =
   [|
@@ -51,13 +65,41 @@ let itype_insn_map : (int -> int -> int -> unit) array =
     invalid_itype_insn 6;
     invalid_itype_insn 7;
     invalid_itype_insn 8;
-    invalid_itype_insn 9;
+    addiu;
     invalid_itype_insn 10;
     invalid_itype_insn 11;
     invalid_itype_insn 12;
-    invalid_itype_insn 13;
+    ori;
     invalid_itype_insn 14;
     lui;
+    invalid_itype_insn 16;
+    invalid_itype_insn 17;
+    invalid_itype_insn 18;
+    invalid_itype_insn 19;
+    invalid_itype_insn 20;
+    invalid_itype_insn 21;
+    invalid_itype_insn 22;
+    invalid_itype_insn 23;
+    invalid_itype_insn 24;
+    invalid_itype_insn 25;
+    invalid_itype_insn 26;
+    invalid_itype_insn 27;
+    invalid_itype_insn 28;
+    invalid_itype_insn 29;
+    invalid_itype_insn 30;
+    invalid_itype_insn 31;
+    invalid_itype_insn 32;
+    invalid_itype_insn 33;
+    invalid_itype_insn 34;
+    invalid_itype_insn 35;
+    invalid_itype_insn 36;
+    invalid_itype_insn 37;
+    invalid_itype_insn 38;
+    invalid_itype_insn 39;
+    invalid_itype_insn 40;
+    invalid_itype_insn 41;
+    invalid_itype_insn 42;
+    sw;
     (* TODO complete map *)
   |]
 

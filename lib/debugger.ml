@@ -55,8 +55,10 @@ let string_of_memory bytes =
 let connect () =
   state.pid <- Unix.fork ();
   if state.pid = 0 then
-    Unix.execvp "gdb-multiarch"
+    Unix.execvp "alacritty"
       [|
+        "alacritty";
+        "-e";
         "gdb-multiarch";
         "-q";
         "-ex";
@@ -69,6 +71,10 @@ let connect () =
         "x/5i $pc";
         "-ex";
         "set pagination off";
+        "-ex";
+        "layout asm";
+        "-ex";
+        "layout regs";
       |]
     |> ignore
   else (* let client = wait_for_connection () in *)

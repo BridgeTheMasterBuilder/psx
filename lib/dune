@@ -16,7 +16,8 @@
   decoder
   debugger
   lexer
-  mem)
+  mem
+  scratchpad)
  (preprocess
   (pps ppx_deriving.show))
  (libraries containers util tsdl))

@@ -1,5 +1,6 @@
 open Bigarray
 open Tsdl
+(* open Util *)
 
 let page_size = 64 * 1024 / 4
 
@@ -39,8 +40,21 @@ let page_table_w_with_cache_isolation :
   Array.make 0x10000 None
 
 let page_table_w = ref page_table_w_normal
-let read_slow addr = 0
-let write_slow addr = ()
+
+let read_slow addr reader =
+  let unmirrored = addr land 0x1FFFFFFF in
+  if unmirrored >= 0x1F800000 && unmirrored < 0x1F800400 then
+    let offset = addr land 0xFFF in
+    reader Scratchpad.data offset (* else failwithf "Unknown address %X" addr *)
+  else 0 (* TODO *)
+
+let write_slow addr data writer =
+  let unmirrored = addr land 0x1FFFFFFF in
+  if unmirrored >= 0x1F800000 && unmirrored < 0x1F800400 then
+    let offset = addr land 0xFFF in
+    writer Scratchpad.data offset data
+    (* else failwithf "Unknown address %X" addr *)
+  else () (* TODO *)
 
 let read addr reader =
   let page = addr lsr 16 in
@@ -50,7 +64,10 @@ let read addr reader =
     log_debug Log.category_application "READ 0x%X - Page #%d - Offset #%d" addr
       page offset);
   match pointer with
-  | None -> read_slow addr
+  | None ->
+      let value = read_slow addr reader in
+      Sdl.(log_debug Log.category_application "Value there %X" value);
+      value
   | Some pointer ->
       let value = reader pointer offset in
       Sdl.(log_debug Log.category_application "Value there %X" value);
@@ -65,8 +82,9 @@ let write addr data writer =
       "WRITE value %X to address 0x%X - Page #%d - Offset #%d" data addr page
       offset);
   match pointer with
-  | None -> write_slow addr
+  | None -> write_slow addr data writer
   | Some pointer -> writer pointer offset data
 
 let read_u32 addr = read addr Mem.read_u32
 let read_u8 addr = read addr Mem.read_u8
+let write_u32 addr data = write addr data Mem.write_u32

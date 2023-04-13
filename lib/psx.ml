@@ -42,16 +42,16 @@ let render renderer framebuffer =
 let update () =
   while state.state = Running && state.cyc < R3000.clockrate do
     R3000.fetch_decode_execute ();
-    state.cyc <- state.cyc + 2
+    state.cyc <- state.cyc + 2;
+    let pc = R3000.pc () in
+    if List.mem pc state.breakpoints then state.state <- Breakpoint
   done
 
 (* TODO debug vs non-debug versions *)
 let run renderer framebuffer =
   if not state.running then terminate ();
   (* let frame_start = Unix.gettimeofday () in *)
-  let pc = R3000.pc () in
   handle_input ();
-  if List.mem pc state.breakpoints then state.state <- Breakpoint;
   update ();
   render renderer framebuffer;
   (* Psx.(match run () with _ -> ()); *)
