@@ -12,29 +12,29 @@ let state =
 let dump_registers () =
   Array.to_list state.regs @ [ 0; 0; 0; 0; 0; state.cur_pc; 0; 0; 0 ]
 
-let fetch () =
-  let pc = state.cur_pc in
+let fetch () = Bus.read_u32 state.cur_pc
+
+let update_pc () =
   state.cur_pc <- state.next_pc;
-  state.next_pc <- (state.next_pc + 4) land 0xFFFFFFFF;
-  Bus.read_u32 pc
+  state.next_pc <- (state.next_pc + 4) land 0xFFFFFFFF
 
 let pc () = state.cur_pc
 
-let invalid_itype_insn op _rs _rt _imm =
+let invalid_itype_insn op _ _ _ =
   failwithf "Unimplemented I-Type instruction: %s"
     (show_mnemonic itype_opcode_map.(op))
 
-let invalid_jtype_insn op =
+let invalid_jtype_insn op _ =
   failwithf "Unimplemented J-Type instruction: %s"
     (show_mnemonic jtype_opcode_map.(op))
 
-let invalid_rtype_insn op =
+let invalid_rtype_insn op _ _ _ _ _ =
   failwithf "Unimplemented R-Type instruction: %s"
     (show_mnemonic rtype_opcode_map.(op))
-
-let invalid_cop0_insn op =
-  failwithf "Unimplemented COP-0 instruction: %s"
-    (show_mnemonic cop0_opcode_map.(op))
+(*
+   let invalid_cop0_insn op =
+     failwithf "Unimplemented COP-0 instruction: %s"
+       (show_mnemonic cop0_opcode_map.(op)) *)
 
 (* TODO sign extend *)
 let addiu rs rt imm =
@@ -54,6 +54,12 @@ let sw base rt off =
   let addr = state.regs.(base) + off in
   Bus.write_u32 addr state.regs.(rt)
 
+let itype_execute insn rs rt immediate =
+  insn rs rt immediate;
+  update_pc ()
+
+let itype_execute_no_incr insn = insn
+
 let itype_insn_map : (int -> int -> int -> unit) array =
   [|
     invalid_itype_insn 0;
@@ -65,13 +71,13 @@ let itype_insn_map : (int -> int -> int -> unit) array =
     invalid_itype_insn 6;
     invalid_itype_insn 7;
     invalid_itype_insn 8;
-    addiu;
+    itype_execute addiu;
     invalid_itype_insn 10;
     invalid_itype_insn 11;
     invalid_itype_insn 12;
-    ori;
+    itype_execute ori;
     invalid_itype_insn 14;
-    lui;
+    itype_execute lui;
     invalid_itype_insn 16;
     invalid_itype_insn 17;
     invalid_itype_insn 18;
@@ -99,26 +105,43 @@ let itype_insn_map : (int -> int -> int -> unit) array =
     invalid_itype_insn 40;
     invalid_itype_insn 41;
     invalid_itype_insn 42;
-    sw;
+    itype_execute sw;
     (* TODO complete map *)
   |]
 
+let j target =
+  let high_bits = bits_abs state.next_pc 28 31 in
+  let target = target lsl 2 in
+  state.cur_pc <- state.next_pc;
+  state.next_pc <- high_bits lor target
+
+let jtype_execute insn = insn
+
+let jtype_insn_map : (int -> unit) array =
+  [|
+    invalid_jtype_insn 0;
+    invalid_jtype_insn 1;
+    jtype_execute j;
+    invalid_jtype_insn 3;
+  |]
 (* TODO do the other maps *)
 
 let execute = function
   | Itype { op; rs; rt; immediate } -> itype_insn_map.(op) rs rt immediate
+  | Jtype { op; target } -> jtype_insn_map.(op) target
   (* TODO other insn types *)
-  | _ -> ()
+  | _ -> failwith "fuck"
 
 let fetch_decode_execute () =
   let pc = pc () in
   let word = fetch () in
   let insn = Decoder.decode word in
   match insn with
-  | Itype { op; _ } when itype_opcode_map.(op) = Invalid -> ()
+  (* | Itype { op; _ } when itype_opcode_map.(op) = Invalid -> () *)
   | Rtype { op; rs = 0; rt = 0; rd = 0; shamt = 0 }
     when rtype_opcode_map.(op) = Sll ->
-      Sdl.(log_debug Log.category_application "%X: NOP" pc)
+      Sdl.(log_debug Log.category_application "%X: NOP" pc);
+      update_pc ()
   | _ ->
       Sdl.(log_debug Log.category_application "%X: %s" pc (Insn.show_insn insn));
       execute insn

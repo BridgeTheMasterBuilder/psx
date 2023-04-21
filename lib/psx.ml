@@ -10,9 +10,11 @@ type t = {
   mutable running : bool;
   mutable breakpoints : int list;
   mutable cyc : int;
+  mutable cpi : int;
 }
 
-let state = { running = true; state = Running; breakpoints = []; cyc = 0 }
+let state =
+  { running = true; state = Running; breakpoints = []; cyc = 0; cpi = 20 }
 
 let handle_input () =
   let event = Sdl.Event.create () in
@@ -42,7 +44,7 @@ let render renderer framebuffer =
 let update () =
   while state.state = Running && state.cyc < R3000.clockrate do
     R3000.fetch_decode_execute ();
-    state.cyc <- state.cyc + 2;
+    state.cyc <- state.cyc + state.cpi;
     let pc = R3000.pc () in
     if List.mem pc state.breakpoints then state.state <- Breakpoint
   done

@@ -202,7 +202,7 @@ type insn =
       op : int;
           [@printer
             fun fmt op -> fprintf fmt "%s" (show_mnemonic jtype_opcode_map.(op))]
-      target : int;
+      target : int; [@printer fun fmt target -> fprintf fmt "%X" target]
     }
   | Rtype of {
       op : int;
