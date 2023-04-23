@@ -1,4 +1,5 @@
 open Util
+open Tsdl
 
 type state = {
   buffer_size : int;
@@ -52,6 +53,12 @@ let string_of_registers registers =
 let string_of_memory bytes =
   List.fold_left (fun accum byte -> accum ^ Printf.sprintf "%02x" byte) "" bytes
 
+let quiet f =
+  let log_level = Sdl.(log_get_priority Log.category_application) in
+  Sdl.(log_set_priority Log.category_application Log.priority_critical);
+  f ();
+  Sdl.(log_set_priority Log.category_application log_level)
+
 let connect () =
   state.pid <- Unix.fork ();
   if state.pid = 0 then
@@ -61,8 +68,8 @@ let connect () =
         "-e";
         "gdb-multiarch";
         "-q";
-        "-ex";
-        "set architecture mips:3000";
+        (* "-ex"; *)
+        (* "set architecture mips:3000"; *)
         "-ex";
         "set debug remote 1";
         "-ex";
@@ -100,23 +107,27 @@ let connect () =
                    let registers = R3000.dump_registers () in
                    respond client (string_of_registers registers)
                | Packet (ReadMemory { addr; length }) ->
-                   let memory =
-                     List.init length (fun i -> Bus.read_u8 (addr + i))
-                   in
-                   respond client (string_of_memory memory)
+                   quiet (fun _ ->
+                       let memory =
+                         List.init length (fun i -> Bus.read_u8 (addr + i))
+                       in
+                       respond client (string_of_memory memory))
                | Packet (WriteMemory { addr; length; data }) ->
                    (* let memory = List.init length (fun i -> Bus.read_u8 (addr + i)) in
                       respond client (string_of_memory memory) *)
                    respond client "E00"
-               | Packet (QSupported _features) -> respond client "swbreak+;"
+                   (* TODO *)
+               | Packet (QSupported _features) ->
+                   respond client
+                     "multiprocess+;vContSupported+;qXfer:features:read+"
                | Packet Kill ->
                    respond client "";
                    state.running <- false;
                    Psx.state.running <- false
-               (* | Packet (Step None) ->
+               | Packet (Step None) ->
                    R3000.fetch_decode_execute () |> ignore;
-                   respond client "S05" *)
-               (* | Packet (Step (Some addr)) -> () *)
+                   respond client "S05"
+               | Packet (Step (Some addr)) -> ()
                | Packet (InsertSwBreak { addr; _ }) ->
                    Psx.state.breakpoints <- addr :: Psx.state.breakpoints;
                    respond client "OK"
@@ -133,6 +144,19 @@ let connect () =
                    done;
                    respond client "S05";
                    Unix.send client (Bytes.of_string "+") 0 1 [] |> ignore
+               | Packet (SetOperation { op = 'c'; _ }) -> respond client "OK"
+               | Packet (SetOperation { op = 'g'; _ }) -> respond client "OK"
+               | Packet QueryThreadId -> respond client "QC00"
+               | Packet QueryAttached -> respond client "1"
+               (* | Packet QueryVContSupported -> respond client "vCont;c;C;s;S" *)
+               (* | Packet QueryThreadInfoFirst -> respond client "m0"
+                  | Packet QueryThreadInfoSubsequent -> respond client "l" *)
+               | Packet (QXfer (FeaturesRead "target.xml")) ->
+                   respond client
+                     {|l<target version="1.0">
+  <architecture>mips:3000</architecture>
+  <osabi>none</osabi>
+</target>|}
                | _ -> respond client ""
              with Sys_blocked_io -> Unix.select [ client ] [] [] 0.1 |> ignore
            done)

@@ -7,7 +7,7 @@ type t = { regs : int array; mutable cur_pc : int; mutable next_pc : int }
 let clockrate = 33_868_800_000
 
 let state =
-  { regs = Array.make 32 0; cur_pc = 0xBFC00000; next_pc = 0xBFC00000 }
+  { regs = Array.make 32 0; cur_pc = 0xBFC00000; next_pc = 0xBFC00004 }
 
 let dump_registers () =
   Array.to_list state.regs @ [ 0; 0; 0; 0; 0; state.cur_pc; 0; 0; 0 ]
@@ -109,6 +109,7 @@ let itype_insn_map : (int -> int -> int -> unit) array =
     (* TODO complete map *)
   |]
 
+(* TODO maybe adjust CPI *)
 let j target =
   let high_bits = bits_abs state.next_pc 28 31 in
   let target = target lsl 2 in

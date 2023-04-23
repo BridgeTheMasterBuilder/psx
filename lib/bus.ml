@@ -1,6 +1,6 @@
 open Bigarray
 open Tsdl
-(* open Util *)
+open Util
 
 let page_size = 64 * 1024 / 4
 
@@ -43,32 +43,45 @@ let page_table_w = ref page_table_w_normal
 
 let read_slow addr reader =
   let unmirrored = addr land 0x1FFFFFFF in
-  if unmirrored >= 0x1F800000 && unmirrored < 0x1F800400 then
+  if unmirrored >= 0x1F800000 && unmirrored < 0x1F800400 then (
     let offset = addr land 0xFFF in
-    reader Scratchpad.data offset (* else failwithf "Unknown address %X" addr *)
-  else 0 (* TODO *)
+    Sdl.(
+      log_debug Log.category_application "READ scratchpad at address #%d" addr);
+    reader Scratchpad.data offset)
+  else if unmirrored >= 0x1F801000 && unmirrored < 0x1F802000 then (
+    Sdl.(
+      log_debug Log.category_application
+        "READ from I/O port at %X (unimplemented)" addr);
+    0)
+  else failwithf "Unknown address %X" addr
 
 let write_slow addr data writer =
   let unmirrored = addr land 0x1FFFFFFF in
-  if unmirrored >= 0x1F800000 && unmirrored < 0x1F800400 then
+  if unmirrored >= 0x1F800000 && unmirrored < 0x1F800400 then (
     let offset = addr land 0xFFF in
-    writer Scratchpad.data offset data
-    (* else failwithf "Unknown address %X" addr *)
-  else () (* TODO *)
+    Sdl.(
+      log_debug Log.category_application
+        "WRITE value %X to scratchpad at address #%d" data addr);
+    writer Scratchpad.data offset data)
+  else if unmirrored >= 0x1F801000 && unmirrored < 0x1F802000 then
+    Sdl.(
+      log_debug Log.category_application
+        "WRITE value %X to I/O port at %X (unimplemented)" data addr)
+  else failwithf "Unknown address %X" addr
 
 let read addr reader =
   let page = addr lsr 16 in
   let offset = addr land 0xFFFF in
   let pointer = page_table_r.(page) in
-  Sdl.(
-    log_debug Log.category_application "READ 0x%X - Page #%d - Offset #%d" addr
-      page offset);
   match pointer with
   | None ->
       let value = read_slow addr reader in
       Sdl.(log_debug Log.category_application "Value there %X" value);
       value
   | Some pointer ->
+      Sdl.(
+        log_debug Log.category_application "READ 0x%X - Page #%d - Offset #%d"
+          addr page offset);
       let value = reader pointer offset in
       Sdl.(log_debug Log.category_application "Value there %X" value);
       value
@@ -77,13 +90,14 @@ let write addr data writer =
   let page = addr lsr 16 in
   let offset = addr land 0xFFFF in
   let pointer = !page_table_w.(page) in
-  Sdl.(
-    log_debug Log.category_application
-      "WRITE value %X to address 0x%X - Page #%d - Offset #%d" data addr page
-      offset);
   match pointer with
   | None -> write_slow addr data writer
-  | Some pointer -> writer pointer offset data
+  | Some pointer ->
+      Sdl.(
+        log_debug Log.category_application
+          "WRITE value %X to address 0x%X - Page #%d - Offset #%d" data addr
+          page offset);
+      writer pointer offset data
 
 let read_u32 addr = read addr Mem.read_u32
 let read_u8 addr = read addr Mem.read_u8

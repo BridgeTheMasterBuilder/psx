@@ -1,5 +1,7 @@
 open Util
 
+(* TODO load delay? *)
+
 (* TODO unaligned *)
 let read_u32 mem addr =
   let addr = addr lsr 2 in
