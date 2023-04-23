@@ -20,6 +20,7 @@ let update_pc () =
 
 let pc () = state.cur_pc
 
+(* TODO Invalid *)
 let invalid_itype_insn op _ _ _ =
   failwithf "Unimplemented I-Type instruction: %s"
     (show_mnemonic itype_opcode_map.(op))
@@ -28,7 +29,7 @@ let invalid_jtype_insn op _ =
   failwithf "Unimplemented J-Type instruction: %s"
     (show_mnemonic jtype_opcode_map.(op))
 
-let invalid_rtype_insn op _ _ _ _ _ =
+let invalid_rtype_insn op _ _ _ _ =
   failwithf "Unimplemented R-Type instruction: %s"
     (show_mnemonic rtype_opcode_map.(op))
 (*
@@ -125,13 +126,64 @@ let jtype_insn_map : (int -> unit) array =
     jtype_execute j;
     invalid_jtype_insn 3;
   |]
-(* TODO do the other maps *)
+
+let or_insn rd rs rt _ =
+  let result = state.regs.(rs lor rt) in
+  state.regs.(rd) <- result
+
+let rtype_execute insn rs rt rd shamt =
+  insn rs rt rd shamt;
+  update_pc ()
+
+let rtype_execute_no_incr insn = insn
+
+let rtype_insn_map : (int -> int -> int -> int -> unit) array =
+  [|
+    invalid_rtype_insn 0;
+    invalid_rtype_insn 1;
+    invalid_rtype_insn 2;
+    invalid_rtype_insn 3;
+    invalid_rtype_insn 4;
+    invalid_rtype_insn 5;
+    invalid_rtype_insn 6;
+    invalid_rtype_insn 7;
+    invalid_rtype_insn 8;
+    invalid_rtype_insn 9;
+    invalid_rtype_insn 10;
+    invalid_rtype_insn 11;
+    invalid_rtype_insn 12;
+    invalid_rtype_insn 13;
+    invalid_rtype_insn 14;
+    invalid_rtype_insn 15;
+    invalid_rtype_insn 16;
+    invalid_rtype_insn 17;
+    invalid_rtype_insn 18;
+    invalid_rtype_insn 19;
+    invalid_rtype_insn 20;
+    invalid_rtype_insn 21;
+    invalid_rtype_insn 22;
+    invalid_rtype_insn 23;
+    invalid_rtype_insn 24;
+    invalid_rtype_insn 25;
+    invalid_rtype_insn 26;
+    invalid_rtype_insn 27;
+    invalid_rtype_insn 28;
+    invalid_rtype_insn 29;
+    invalid_rtype_insn 30;
+    invalid_rtype_insn 31;
+    invalid_rtype_insn 32;
+    invalid_rtype_insn 33;
+    invalid_rtype_insn 34;
+    invalid_rtype_insn 35;
+    invalid_rtype_insn 36;
+    rtype_execute or_insn;
+  |]
 
 let execute = function
   | Itype { op; rs; rt; immediate } -> itype_insn_map.(op) rs rt immediate
   | Jtype { op; target } -> jtype_insn_map.(op) target
-  (* TODO other insn types *)
-  | _ -> failwith "fuck"
+  | Rtype { op; rs; rt; rd; shamt } -> rtype_insn_map.(op) rs rt rd shamt
+  | _ -> failwith "COP0 instructions unimplemented"
 
 let fetch_decode_execute () =
   let pc = pc () in

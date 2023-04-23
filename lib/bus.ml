@@ -67,6 +67,9 @@ let write_slow addr data writer =
     Sdl.(
       log_debug Log.category_application
         "WRITE value %X to I/O port at %X (unimplemented)" data addr)
+  else if addr = 0xFFFE0130 then
+    if data = 0x1E988 then page_table_w := page_table_w_normal
+    else page_table_w := page_table_w_with_cache_isolation
   else failwithf "Unknown address %X" addr
 
 let read addr reader =
