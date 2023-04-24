@@ -59,16 +59,16 @@ let invalid_cop0_insn op _ _ =
     (show_mnemonic cop0_opcode_map.(op))
 
 let bne rs rt off =
-  let off = i32_of_i16 off lsl 2 in
+  let off = i64_of_i16 off lsl 2 in
   if state.regs.(rs) <> state.regs.(rt) then add_pc off else incr_pc ()
 
 (* TODO overflow exception *)
 let addi rs rt imm =
-  let result = state.regs.(rs) + i32_of_i16 imm in
+  let result = state.regs.(rs) + i64_of_i16 imm in
   state.regs.(rt) <- result
 
 let addiu rs rt imm =
-  let result = state.regs.(rs) + i32_of_i16 imm in
+  let result = state.regs.(rs) + i64_of_i16 imm in
   state.regs.(rt) <- result
 
 let ori rs rt imm =
@@ -80,7 +80,7 @@ let lui _ rt imm =
   state.regs.(rt) <- result
 
 let sw base rt off =
-  let addr = state.regs.(base) + i32_of_i16 off in
+  let addr = state.regs.(base) + i64_of_i16 off in
   Bus.write_u32 addr state.regs.(rt)
 
 let itype_execute insn rs rt immediate =
