@@ -228,6 +228,7 @@ type insn =
             fun fmt reg -> fprintf fmt "%s" Register.(show (of_int reg))]
       rd : int;
           [@printer
-            fun fmt reg -> fprintf fmt "%s" Register.(show (of_int reg))]
+            fun fmt reg ->
+              fprintf fmt "%s" Register.(show_cop0 (cop0_of_int reg))]
     }
 [@@deriving show]

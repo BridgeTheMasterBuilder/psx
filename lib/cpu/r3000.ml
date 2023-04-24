@@ -24,9 +24,20 @@ let dump_registers () =
 
 let fetch () = Bus.read_u32 state.cur_pc
 
-let update_pc () =
+(* TODO maybe adjust CPI *)
+let incr_pc () =
   state.cur_pc <- state.next_pc;
   state.next_pc <- (state.next_pc + 4) land 0xFFFFFFFF
+
+(* TODO maybe adjust CPI *)
+let add_pc offset =
+  state.cur_pc <- state.next_pc;
+  state.next_pc <- (state.next_pc + offset) land 0xFFFFFFFF
+
+(* TODO maybe adjust CPI *)
+let set_pc pc =
+  state.cur_pc <- state.next_pc;
+  state.next_pc <- pc land 0xFFFFFFFF
 
 let pc () = state.cur_pc
 
@@ -47,9 +58,17 @@ let invalid_cop0_insn op _ _ =
   failwithf "Unimplemented COP-0 instruction: %s"
     (show_mnemonic cop0_opcode_map.(op))
 
-(* TODO sign extend *)
+let bne rs rt off =
+  let off = i32_of_i16 off lsl 2 in
+  if state.regs.(rs) <> state.regs.(rt) then add_pc off else incr_pc ()
+
+(* TODO overflow exception *)
+let addi rs rt imm =
+  let result = state.regs.(rs) + i32_of_i16 imm in
+  state.regs.(rt) <- result
+
 let addiu rs rt imm =
-  let result = state.regs.(rs) + imm in
+  let result = state.regs.(rs) + i32_of_i16 imm in
   state.regs.(rt) <- result
 
 let ori rs rt imm =
@@ -60,14 +79,13 @@ let lui _ rt imm =
   let result = imm lsl 16 in
   state.regs.(rt) <- result
 
-(* TODO sign extend offset *)
 let sw base rt off =
-  let addr = state.regs.(base) + off in
+  let addr = state.regs.(base) + i32_of_i16 off in
   Bus.write_u32 addr state.regs.(rt)
 
 let itype_execute insn rs rt immediate =
   insn rs rt immediate;
-  update_pc ()
+  incr_pc ()
 
 let itype_execute_no_incr insn = insn
 
@@ -78,10 +96,10 @@ let itype_insn_map : (int -> int -> int -> unit) array =
     invalid_itype_insn 2;
     invalid_itype_insn 3;
     invalid_itype_insn 4;
-    invalid_itype_insn 5;
+    itype_execute_no_incr bne;
     invalid_itype_insn 6;
     invalid_itype_insn 7;
-    invalid_itype_insn 8;
+    itype_execute addi;
     itype_execute addiu;
     invalid_itype_insn 10;
     invalid_itype_insn 11;
@@ -117,15 +135,13 @@ let itype_insn_map : (int -> int -> int -> unit) array =
     invalid_itype_insn 41;
     invalid_itype_insn 42;
     itype_execute sw;
-    (* TODO complete map *)
   |]
 
-(* TODO maybe adjust CPI *)
 let j target =
   let high_bits = bits_abs state.next_pc 28 31 in
   let target = target lsl 2 in
-  state.cur_pc <- state.next_pc;
-  state.next_pc <- high_bits lor target
+  let target = high_bits lor target in
+  set_pc target
 
 let jtype_execute insn = insn
 
@@ -143,7 +159,7 @@ let or_insn rd rs rt _ =
 
 let rtype_execute insn rs rt rd shamt =
   insn rs rt rd shamt;
-  update_pc ()
+  incr_pc ()
 
 let rtype_execute_no_incr insn = insn
 
@@ -195,7 +211,7 @@ let rfe _ _ = failwith "RFE unimplemented"
 
 let cop0_execute insn rt rd =
   insn rt rd;
-  update_pc ()
+  incr_pc ()
 
 let cop0_insn_map : (int -> int -> unit) array =
   [|
@@ -233,7 +249,7 @@ let fetch_decode_execute () =
   | Rtype { op; rs = 0; rt = 0; rd = 0; shamt = 0 }
     when rtype_opcode_map.(op) = Sll ->
       Sdl.(log_debug Log.category_application "%X: NOP" pc);
-      update_pc ()
+      incr_pc ()
   | _ ->
       Sdl.(log_debug Log.category_application "%X: %s" pc (Insn.show_insn insn));
       execute insn

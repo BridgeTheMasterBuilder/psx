@@ -33,6 +33,21 @@ type t =
   | Ra
 [@@deriving show]
 
+type cop0 =
+  | Bpc
+  | Bda
+  | Jumpdest
+  | Dcic
+  | BadVaddr
+  | Bdam
+  | Bpcm
+  | Sr
+  | Cause
+  | Epc
+  | Prid
+  | Invalid
+[@@deriving show]
+
 let of_int i =
   match i with
   | 0 -> Zero
@@ -68,3 +83,18 @@ let of_int i =
   | 30 -> Fp
   | 31 -> Ra
   | _ -> failwith (Printf.sprintf "Invalid register %d" i)
+
+let cop0_of_int i =
+  match i with
+  | 3 -> Bpc
+  | 5 -> Bda
+  | 6 -> Jumpdest
+  | 7 -> Dcic
+  | 8 -> BadVaddr
+  | 9 -> Bdam
+  | 11 -> Bpcm
+  | 12 -> Sr
+  | 13 -> Cause
+  | 14 -> Epc
+  | 15 -> Prid
+  | _ -> failwith (Printf.sprintf "Invalid COP0 register %d" i)

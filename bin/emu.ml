@@ -46,7 +46,7 @@ let init () =
 
     let bios = map_file_array1 bios_path in
     Bios.load bios;
-    Debugger.connect ();
+    (* Debugger.connect (); *)
     (renderer, texture)
     (* run renderer texture *)
   with SdlError e ->
