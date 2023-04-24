@@ -82,6 +82,10 @@ let connect () =
         "layout asm";
         "-ex";
         "layout regs";
+        "-ex";
+        "b *0xbfc00250";
+        "-ex";
+        "c";
       |]
     |> ignore
   else (* let client = wait_for_connection () in *)

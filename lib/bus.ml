@@ -35,9 +35,18 @@ let page_table_w_normal =
   done;
   page_table
 
+let dev_null = Array1.create int Bigarray.C_layout page_size
+
 let page_table_w_with_cache_isolation :
     (int, int_elt, c_layout) Array1.t option array =
-  Array.make 0x10000 None
+  let page_table = Array.make 0x10000 None in
+  for idx = 0 to 127 do
+    let pointer = dev_null in
+    Array.set page_table (idx + 0x0000) (Some pointer);
+    Array.set page_table (idx + 0x8000) (Some pointer);
+    Array.set page_table (idx + 0xA000) (Some pointer)
+  done;
+  page_table
 
 let page_table_w = ref page_table_w_normal
 
@@ -67,9 +76,12 @@ let write_slow addr data writer =
     Sdl.(
       log_debug Log.category_application
         "WRITE value %X to I/O port at %X (unimplemented)" data addr)
-  else if addr = 0xFFFE0130 then
+  else if addr = 0xFFFE0130 then (
+    Sdl.(
+      log_debug Log.category_application "WRITE value %X to cache control at %X"
+        data addr);
     if data = 0x1E988 then page_table_w := page_table_w_normal
-    else page_table_w := page_table_w_with_cache_isolation
+    else page_table_w := page_table_w_with_cache_isolation)
   else failwithf "Unknown address %X" addr
 
 let read addr reader =

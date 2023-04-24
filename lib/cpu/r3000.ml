@@ -2,12 +2,22 @@ open Tsdl
 open Insn
 open Util
 
-type t = { regs : int array; mutable cur_pc : int; mutable next_pc : int }
+type t = {
+  regs : int array;
+  mutable cur_pc : int;
+  mutable next_pc : int;
+  cop0_regs : int array;
+}
 
 let clockrate = 33_868_800_000
 
 let state =
-  { regs = Array.make 32 0; cur_pc = 0xBFC00000; next_pc = 0xBFC00004 }
+  {
+    regs = Array.make 32 0;
+    cur_pc = 0xBFC00000;
+    next_pc = 0xBFC00004;
+    cop0_regs = Array.make 32 0;
+  }
 
 let dump_registers () =
   Array.to_list state.regs @ [ 0; 0; 0; 0; 0; state.cur_pc; 0; 0; 0 ]
@@ -32,10 +42,10 @@ let invalid_jtype_insn op _ =
 let invalid_rtype_insn op _ _ _ _ =
   failwithf "Unimplemented R-Type instruction: %s"
     (show_mnemonic rtype_opcode_map.(op))
-(*
-   let invalid_cop0_insn op =
-     failwithf "Unimplemented COP-0 instruction: %s"
-       (show_mnemonic cop0_opcode_map.(op)) *)
+
+let invalid_cop0_insn op _ _ =
+  failwithf "Unimplemented COP-0 instruction: %s"
+    (show_mnemonic cop0_opcode_map.(op))
 
 (* TODO sign extend *)
 let addiu rs rt imm =
@@ -179,11 +189,40 @@ let rtype_insn_map : (int -> int -> int -> int -> unit) array =
     rtype_execute or_insn;
   |]
 
+let mfc0 rt rd = state.regs.(rt) <- state.cop0_regs.(rd)
+let mtc0 rt rd = state.cop0_regs.(rd) <- state.regs.(rt)
+let rfe _ _ = failwith "RFE unimplemented"
+
+let cop0_execute insn rt rd =
+  insn rt rd;
+  update_pc ()
+
+let cop0_insn_map : (int -> int -> unit) array =
+  [|
+    cop0_execute mfc0;
+    invalid_cop0_insn 1;
+    invalid_cop0_insn 2;
+    invalid_cop0_insn 3;
+    cop0_execute mtc0;
+    invalid_cop0_insn 5;
+    invalid_cop0_insn 6;
+    invalid_cop0_insn 7;
+    invalid_cop0_insn 8;
+    invalid_cop0_insn 9;
+    invalid_cop0_insn 10;
+    invalid_cop0_insn 11;
+    invalid_cop0_insn 12;
+    invalid_cop0_insn 13;
+    invalid_cop0_insn 14;
+    invalid_cop0_insn 15;
+    cop0_execute rfe;
+  |]
+
 let execute = function
   | Itype { op; rs; rt; immediate } -> itype_insn_map.(op) rs rt immediate
   | Jtype { op; target } -> jtype_insn_map.(op) target
   | Rtype { op; rs; rt; rd; shamt } -> rtype_insn_map.(op) rs rt rd shamt
-  | _ -> failwith "COP0 instructions unimplemented"
+  | Cop0 { op; rt; rd } -> cop0_insn_map.(op) rt rd
 
 let fetch_decode_execute () =
   let pc = pc () in
