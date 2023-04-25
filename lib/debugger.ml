@@ -1,5 +1,5 @@
 open Util
-open Tsdl
+open Misc
 
 type state = {
   buffer_size : int;
@@ -52,12 +52,6 @@ let string_of_registers registers =
 
 let string_of_memory bytes =
   List.fold_left (fun accum byte -> accum ^ Printf.sprintf "%02x" byte) "" bytes
-
-let quiet f =
-  let log_level = Sdl.(log_get_priority Log.category_application) in
-  Sdl.(log_set_priority Log.category_application Log.priority_critical);
-  f ();
-  Sdl.(log_set_priority Log.category_application log_level)
 
 let connect () =
   state.pid <- Unix.fork ();

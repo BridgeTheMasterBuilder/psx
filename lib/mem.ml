@@ -7,6 +7,7 @@ let read_u32 mem addr =
   let addr = addr lsr 2 in
   mem.{addr} land 0xFFFFFFFF
 
+(* TODO mask *)
 let read_u8 mem addr =
   let bit_offset = addr land 3 * 8 in
   let word = read_u32 mem addr in

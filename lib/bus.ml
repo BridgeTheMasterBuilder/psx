@@ -8,7 +8,7 @@ let page_table_r =
   let page_table = Array.make 0x10000 None in
   for idx = 0 to 127 do
     let pointer =
-      (* 0x7FFFF *)
+      (* TODO 0x7FFFF *)
       Array1.sub Ram.ram (idx * page_size land (0x1FFFFF / 4)) page_size
     in
     Array.set page_table (idx + 0x0000) (Some pointer);
@@ -49,6 +49,7 @@ let page_table_w_with_cache_isolation :
   page_table
 
 let page_table_w = ref page_table_w_normal
+let fffe0130 = ref 0
 
 let read_slow addr reader =
   let unmirrored = addr land 0x1FFFFFFF in
@@ -61,7 +62,8 @@ let read_slow addr reader =
     Sdl.(
       log_debug Log.category_application
         "READ from I/O port at %X (unimplemented)" addr);
-    0)
+    -1)
+  else if addr = 0xFFFE0130 then !fffe0130
   else failwithf "Unknown address %X" addr
 
 let write_slow addr data writer =
@@ -81,7 +83,8 @@ let write_slow addr data writer =
       log_debug Log.category_application "WRITE value %X to cache control at %X"
         data addr);
     if data = 0x1E988 then page_table_w := page_table_w_normal
-    else page_table_w := page_table_w_with_cache_isolation)
+    else page_table_w := page_table_w_with_cache_isolation;
+    fffe0130 := data)
   else failwithf "Unknown address %X" addr
 
 let read addr reader =

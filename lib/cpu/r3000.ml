@@ -1,6 +1,8 @@
+(* TODO maybe separate into different files *)
 open Tsdl
 open Insn
 open Util
+open Misc
 
 type t = {
   regs : int array;
@@ -41,7 +43,7 @@ let set_pc pc =
 
 let pc () = state.cur_pc
 
-(* TODO Invalid *)
+(* TODO Invalid, not just unimplemented *)
 let invalid_itype_insn op _ _ _ =
   failwithf "Unimplemented I-Type instruction: %s"
     (show_mnemonic itype_opcode_map.(op))
@@ -81,7 +83,9 @@ let lui _ rt imm =
 
 let sw base rt off =
   let addr = state.regs.(base) + i64_of_i16 off in
-  Bus.write_u32 addr state.regs.(rt)
+  Bus.write_u32 addr state.regs.(rt);
+  quiet (fun _ ->
+      assert (Bus.read_u32 addr = state.regs.(rt) || Bus.read_u32 addr = -1))
 
 let itype_execute insn rs rt immediate =
   insn rs rt immediate;
@@ -245,7 +249,6 @@ let fetch_decode_execute () =
   let word = fetch () in
   let insn = Decoder.decode word in
   match insn with
-  (* | Itype { op; _ } when itype_opcode_map.(op) = Invalid -> () *)
   | Rtype { op; rs = 0; rt = 0; rd = 0; shamt = 0 }
     when rtype_opcode_map.(op) = Sll ->
       Sdl.(log_debug Log.category_application "%X: NOP" pc);
