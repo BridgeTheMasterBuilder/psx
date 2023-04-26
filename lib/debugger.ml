@@ -62,8 +62,6 @@ let connect () =
         "-e";
         "gdb-multiarch";
         "-q";
-        (* "-ex"; *)
-        (* "set architecture mips:3000"; *)
         "-ex";
         "set debug remote 1";
         "-ex";
@@ -77,13 +75,12 @@ let connect () =
         "-ex";
         "layout regs";
         "-ex";
-        "b *0xbfc00004";
+        "watch *0xfffe0130";
         "-ex";
         "c";
       |]
     |> ignore
-  else (* let client = wait_for_connection () in *)
-    wait_for_connection ();
+  else wait_for_connection ();
   let client = Option.get state.client in
   let channel = Unix.in_channel_of_descr client in
   Psx.state.state <- Halted;
@@ -107,7 +104,8 @@ let connect () =
                | Packet (ReadMemory { addr; length }) ->
                    quiet (fun _ ->
                        let memory =
-                         List.init length (fun i -> Bus.read_u8 (addr + i))
+                         List.init length (fun i ->
+                             try Bus.read_u8 (addr + i) with Failure _ -> 0)
                        in
                        respond client (string_of_memory memory))
                | Packet (WriteMemory { addr; length; data }) ->
@@ -125,7 +123,7 @@ let connect () =
                | Packet (Step None) ->
                    R3000.fetch_decode_execute () |> ignore;
                    respond client "S05"
-               | Packet (Step (Some addr)) -> ()
+               (* | Packet (Step (Some addr)) -> () *)
                | Packet (InsertSwBreak { addr; _ }) ->
                    R3000.state.breakpoints <- addr :: R3000.state.breakpoints;
                    respond client "OK"

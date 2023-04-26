@@ -4,7 +4,8 @@ open Insn
 open Util
 open Misc
 
-type state = Running | Halted | Breakpoint | Watchpoint [@@deriving show]
+type state = Running | Halted | Breakpoint | Watchpoint
+(* [@@deriving show] *)
 
 type t = {
   regs : int array;
@@ -33,23 +34,19 @@ let dump_registers () =
   Array.to_list state.regs @ [ 0; 0; 0; 0; 0; state.cur_pc; 0; 0; 0 ]
 
 let fetch () = Bus.read_u32 state.cur_pc
-
-(* TODO maybe adjust CPI *)
-let incr_pc () =
-  state.cur_pc <- state.next_pc;
-  state.next_pc <- (state.next_pc + 4) land 0xFFFFFFFF
-
-(* TODO maybe adjust CPI *)
-let add_pc offset =
-  state.cur_pc <- state.next_pc;
-  state.next_pc <- (state.next_pc + offset) land 0xFFFFFFFF
-
-(* TODO maybe adjust CPI *)
-let set_pc pc =
-  state.cur_pc <- state.next_pc;
-  state.next_pc <- pc land 0xFFFFFFFF
-
 let pc () = state.cur_pc
+
+(* TODO maybe adjust CPI *)
+let set_pc addr =
+  state.cur_pc <- state.next_pc;
+  state.next_pc <- addr land 0xFFFFFFFF;
+  let pc = pc () in
+  if List.mem pc state.breakpoints then (
+    Sdl.(log_debug Log.category_application "Hit breakpoint at %X" pc);
+    state.state <- Breakpoint)
+
+let incr_pc () = set_pc (state.next_pc + 4)
+let add_pc offset = set_pc (state.next_pc + offset)
 
 (* TODO Invalid, not just unimplemented *)
 let invalid_itype_insn op _ _ _ =
@@ -100,6 +97,19 @@ let itype_execute insn rs rt immediate =
   incr_pc ()
 
 let itype_execute_no_incr insn = insn
+let watchpoint_acknowledged = ref false
+
+let itype_execute_watched insn rs rt immediate =
+  let addr = state.regs.(rs) + i64_of_i16 immediate in
+  if List.mem addr state.watchpoints && not !watchpoint_acknowledged then (
+    Sdl.(log_debug Log.category_application "Hit watchpoint at %X" addr);
+    watchpoint_acknowledged := true;
+    state.state <- Watchpoint)
+  else (
+    insn rs rt immediate;
+    incr_pc ();
+    watchpoint_acknowledged := false;
+    state.state <- Running)
 
 let itype_insn_map : (int -> int -> int -> unit) array =
   [|
@@ -146,7 +156,7 @@ let itype_insn_map : (int -> int -> int -> unit) array =
     invalid_itype_insn 40;
     invalid_itype_insn 41;
     invalid_itype_insn 42;
-    itype_execute sw;
+    itype_execute_watched sw;
   |]
 
 let j target =
@@ -252,42 +262,16 @@ let execute = function
   | Rtype { op; rs; rt; rd; shamt } -> rtype_insn_map.(op) rs rt rd shamt
   | Cop0 { op; rt; rd } -> cop0_insn_map.(op) rt rd
 
-let queue = ref None
-
 let fetch_decode_execute () =
-  if Option.is_some !queue then (
-    execute (Option.get !queue);
-    state.state)
-  else
-    let pc = pc () in
-    (if List.mem pc state.breakpoints then (
-       Sdl.(log_debug Log.category_application "Hit breakpoint at %X" pc);
-       state.state <- Breakpoint)
-     else
-       let word = fetch () in
-       let insn = Decoder.decode word in
-       match insn with
-       | Rtype { op; rs = 0; rt = 0; rd = 0; shamt = 0 }
-         when rtype_opcode_map.(op) = Sll ->
-           Sdl.(log_debug Log.category_application "%X: NOP" pc);
-           incr_pc ()
-       | Itype { op; rs; immediate; _ } when itype_opcode_map.(op) = Sw ->
-           let addr = state.regs.(rs) + i64_of_i16 immediate in
-           if List.mem addr state.watchpoints then (
-             Sdl.(
-               log_debug Log.category_application "Hit watchpoint at %X" addr);
-             state.state <- Watchpoint;
-             queue := Some insn)
-           else (
-             Sdl.(
-               log_debug Log.category_application "%X: %s" pc
-                 (Insn.show_insn insn));
-             execute insn)
-       | _ ->
-           Sdl.(
-             log_debug Log.category_application "%X: %s" pc
-               (Insn.show_insn insn));
-           execute insn);
-    Sdl.(
-      log_debug Log.category_application "State: %s" (show_state state.state));
-    state.state
+  let pc = pc () in
+  let word = fetch () in
+  let insn = Decoder.decode word in
+  (match insn with
+  | Rtype { op; rs = 0; rt = 0; rd = 0; shamt = 0 }
+    when rtype_opcode_map.(op) = Sll ->
+      Sdl.(log_debug Log.category_application "%X: NOP" pc);
+      incr_pc ()
+  | _ ->
+      Sdl.(log_debug Log.category_application "%X: %s" pc (Insn.show_insn insn));
+      execute insn);
+  state.state

@@ -64,8 +64,7 @@ let read_slow addr reader =
         "READ from I/O port at %X (unimplemented)" addr);
     -1)
   else if addr = 0xFFFE0130 then !fffe0130
-    (* else failwithf "Unknown address %X" addr *)
-  else 0
+  else failwithf "Unknown address %X" addr
 
 let write_slow addr data writer =
   let unmirrored = addr land 0x1FFFFFFF in
