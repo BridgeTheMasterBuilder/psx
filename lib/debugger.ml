@@ -77,7 +77,7 @@ let connect () =
         "-ex";
         "layout regs";
         "-ex";
-        "b *0xbfc00270";
+        "b *0xbfc00004";
         "-ex";
         "c";
       |]
@@ -127,17 +127,30 @@ let connect () =
                    respond client "S05"
                | Packet (Step (Some addr)) -> ()
                | Packet (InsertSwBreak { addr; _ }) ->
-                   Psx.state.breakpoints <- addr :: Psx.state.breakpoints;
+                   R3000.state.breakpoints <- addr :: R3000.state.breakpoints;
                    respond client "OK"
                | Packet (RemoveSwBreak { addr; _ }) ->
-                   Psx.state.breakpoints <-
+                   R3000.state.breakpoints <-
                      List.filter
                        (fun breakpoint -> breakpoint <> addr)
-                       Psx.state.breakpoints;
+                       R3000.state.breakpoints;
+                   respond client "OK"
+               | Packet (InsertWriteWatchpoint { addr; _ }) ->
+                   R3000.state.watchpoints <- addr :: R3000.state.watchpoints;
+                   respond client "OK"
+               | Packet (RemoveWriteWatchpoint { addr; _ }) ->
+                   R3000.state.watchpoints <-
+                     List.filter
+                       (fun watchpoint -> watchpoint <> addr)
+                       R3000.state.watchpoints;
                    respond client "OK"
                | Packet Continue ->
                    Psx.state.state <- Running;
-                   while Psx.state.state <> Breakpoint do
+                   R3000.state.state <- Running;
+                   while
+                     Psx.state.state <> Breakpoint
+                     && Psx.state.state <> Watchpoint
+                   do
                      Unix.sleepf 0.5
                    done;
                    respond client "S05";

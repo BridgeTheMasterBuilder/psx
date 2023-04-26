@@ -4,11 +4,16 @@ open Insn
 open Util
 open Misc
 
+type state = Running | Halted | Breakpoint | Watchpoint [@@deriving show]
+
 type t = {
   regs : int array;
   mutable cur_pc : int;
   mutable next_pc : int;
   cop0_regs : int array;
+  mutable breakpoints : int list;
+  mutable watchpoints : int list;
+  mutable state : state;
 }
 
 let clockrate = 33_868_800_000
@@ -19,6 +24,9 @@ let state =
     cur_pc = 0xBFC00000;
     next_pc = 0xBFC00004;
     cop0_regs = Array.make 32 0;
+    breakpoints = [];
+    watchpoints = [];
+    state = Running;
   }
 
 let dump_registers () =
@@ -244,15 +252,42 @@ let execute = function
   | Rtype { op; rs; rt; rd; shamt } -> rtype_insn_map.(op) rs rt rd shamt
   | Cop0 { op; rt; rd } -> cop0_insn_map.(op) rt rd
 
+let queue = ref None
+
 let fetch_decode_execute () =
-  let pc = pc () in
-  let word = fetch () in
-  let insn = Decoder.decode word in
-  match insn with
-  | Rtype { op; rs = 0; rt = 0; rd = 0; shamt = 0 }
-    when rtype_opcode_map.(op) = Sll ->
-      Sdl.(log_debug Log.category_application "%X: NOP" pc);
-      incr_pc ()
-  | _ ->
-      Sdl.(log_debug Log.category_application "%X: %s" pc (Insn.show_insn insn));
-      execute insn
+  if Option.is_some !queue then (
+    execute (Option.get !queue);
+    state.state)
+  else
+    let pc = pc () in
+    (if List.mem pc state.breakpoints then (
+       Sdl.(log_debug Log.category_application "Hit breakpoint at %X" pc);
+       state.state <- Breakpoint)
+     else
+       let word = fetch () in
+       let insn = Decoder.decode word in
+       match insn with
+       | Rtype { op; rs = 0; rt = 0; rd = 0; shamt = 0 }
+         when rtype_opcode_map.(op) = Sll ->
+           Sdl.(log_debug Log.category_application "%X: NOP" pc);
+           incr_pc ()
+       | Itype { op; rs; immediate; _ } when itype_opcode_map.(op) = Sw ->
+           let addr = state.regs.(rs) + i64_of_i16 immediate in
+           if List.mem addr state.watchpoints then (
+             Sdl.(
+               log_debug Log.category_application "Hit watchpoint at %X" addr);
+             state.state <- Watchpoint;
+             queue := Some insn)
+           else (
+             Sdl.(
+               log_debug Log.category_application "%X: %s" pc
+                 (Insn.show_insn insn));
+             execute insn)
+       | _ ->
+           Sdl.(
+             log_debug Log.category_application "%X: %s" pc
+               (Insn.show_insn insn));
+           execute insn);
+    Sdl.(
+      log_debug Log.category_application "State: %s" (show_state state.state));
+    state.state

@@ -3,6 +3,7 @@ open Psx_lib
 
 let set_port port = Debugger.state.port <- port
 
+(* TODO run with debug? use exceptions to select which version *)
 let main port =
   set_port port;
   let renderer, framebuffer = Emu.init () in

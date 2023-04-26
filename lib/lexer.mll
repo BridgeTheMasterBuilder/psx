@@ -14,6 +14,8 @@ type packet =
     | Step of int option
     | InsertSwBreak of { addr: int; kind: int; }
     | RemoveSwBreak of { addr: int; kind: int; }
+    | InsertWriteWatchpoint of { addr: int; kind: int; }
+    | RemoveWriteWatchpoint of { addr: int; kind: int; }
     | Continue
     | SetOperation of { op: char; tid: int }
     | QueryThreadId
@@ -88,6 +90,18 @@ rule lex = parse
     let addr = parse_hex addr in 
     let kind = parse_hex kind in 
     Packet (RemoveSwBreak { addr; kind }) 
+} 
+| "$Z2," (hex_digit+ as addr) ',' (hex_digit+ as kind) '#' (checksum as cs) { 
+    sanity_check (Printf.sprintf "Z2,%s,%s" addr kind) cs; 
+    let addr = parse_hex addr in 
+    let kind = parse_hex kind in 
+    Packet (InsertWriteWatchpoint { addr; kind }) 
+} 
+| "$z2," (hex_digit+ as addr) ',' (hex_digit+ as kind) '#' (checksum as cs) { 
+    sanity_check (Printf.sprintf "z2,%s,%s" addr kind) cs; 
+    let addr = parse_hex addr in 
+    let kind = parse_hex kind in 
+    Packet (RemoveWriteWatchpoint { addr; kind }) 
 } 
 | "$c#" (checksum as cs) { sanity_check "c" cs; Packet Continue } 
 | "$H" (operation as op) (hex_digit+ as id) '#' (checksum as cs) { 

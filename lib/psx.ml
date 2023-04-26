@@ -1,20 +1,16 @@
 open Tsdl
 open Util
 
-type state = Running | Halted | Breakpoint
-
 let terminate () = raise_notrace Exit
 
 type t = {
-  mutable state : state;
+  mutable state : R3000.state;
   mutable running : bool;
-  mutable breakpoints : int list;
   mutable cyc : int;
   mutable cpi : int;
 }
 
-let state =
-  { running = true; state = Running; breakpoints = []; cyc = 0; cpi = 20 }
+let state = { running = true; state = Running; cyc = 0; cpi = 20 }
 
 let handle_input () =
   let event = Sdl.Event.create () in
@@ -41,15 +37,13 @@ let render renderer framebuffer =
   Sdl.render_copy renderer framebuffer |> unwrap |> ignore;
   Sdl.render_present renderer
 
+(* TODO debug vs non-debug versions *)
 let update () =
   while state.state = Running && state.cyc < R3000.clockrate do
-    R3000.fetch_decode_execute ();
-    state.cyc <- state.cyc + state.cpi;
-    let pc = R3000.pc () in
-    if List.mem pc state.breakpoints then state.state <- Breakpoint
+    state.state <- R3000.fetch_decode_execute ();
+    state.cyc <- state.cyc + state.cpi
   done
 
-(* TODO debug vs non-debug versions *)
 let run renderer framebuffer =
   if not state.running then terminate ();
   (* let frame_start = Unix.gettimeofday () in *)
