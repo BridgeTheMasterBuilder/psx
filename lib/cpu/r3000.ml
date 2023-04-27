@@ -13,7 +13,8 @@ type t = {
   mutable next_pc : int;
   cop0_regs : int array;
   mutable breakpoints : int list;
-  mutable watchpoints : int list;
+  mutable write_watchpoints : int list;
+  mutable read_watchpoints : int list;
   mutable state : state;
 }
 
@@ -26,7 +27,8 @@ let state =
     next_pc = 0xBFC00004;
     cop0_regs = Array.make 32 0;
     breakpoints = [];
-    watchpoints = [];
+    write_watchpoints = [];
+    read_watchpoints = [];
     state = Running;
   }
 
@@ -86,6 +88,10 @@ let lui _ rt imm =
   let result = imm lsl 16 in
   state.regs.(rt) <- result
 
+let lw base rt off =
+  let addr = state.regs.(base) + i64_of_i16 off in
+  state.regs.(rt) <- Bus.read_u32 addr
+
 let sw base rt off =
   let addr = state.regs.(base) + i64_of_i16 off in
   Bus.write_u32 addr state.regs.(rt);
@@ -99,9 +105,13 @@ let itype_execute insn rs rt immediate =
 let itype_execute_no_incr insn = insn
 let watchpoint_acknowledged = ref false
 
-let itype_execute_watched insn rs rt immediate =
+let itype_execute_watched read write insn rs rt immediate =
   let addr = state.regs.(rs) + i64_of_i16 immediate in
-  if List.mem addr state.watchpoints && not !watchpoint_acknowledged then (
+  if
+    ((write && List.mem addr state.write_watchpoints)
+    || (read && List.mem addr state.read_watchpoints))
+    && not !watchpoint_acknowledged
+  then (
     Sdl.(log_debug Log.category_application "Hit watchpoint at %X" addr);
     watchpoint_acknowledged := true;
     state.state <- Watchpoint)
@@ -110,6 +120,9 @@ let itype_execute_watched insn rs rt immediate =
     incr_pc ();
     watchpoint_acknowledged := false;
     state.state <- Running)
+
+let itype_execute_watch_writes insn = itype_execute_watched false true insn
+let itype_execute_watch_reads insn = itype_execute_watched true false insn
 
 let itype_insn_map : (int -> int -> int -> unit) array =
   [|
@@ -148,7 +161,7 @@ let itype_insn_map : (int -> int -> int -> unit) array =
     invalid_itype_insn 32;
     invalid_itype_insn 33;
     invalid_itype_insn 34;
-    invalid_itype_insn 35;
+    itype_execute_watch_reads lw;
     invalid_itype_insn 36;
     invalid_itype_insn 37;
     invalid_itype_insn 38;
@@ -156,7 +169,7 @@ let itype_insn_map : (int -> int -> int -> unit) array =
     invalid_itype_insn 40;
     invalid_itype_insn 41;
     invalid_itype_insn 42;
-    itype_execute_watched sw;
+    itype_execute_watch_writes sw;
   |]
 
 let j target =

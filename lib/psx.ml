@@ -14,7 +14,7 @@ let state = { running = true; state = Running; cyc = 0; cpi = 20 }
 
 let handle_input () =
   let event = Sdl.Event.create () in
-  let exception Continue in
+  let exception Break in
   try
     while true do
       if Sdl.poll_event (Some event) then
@@ -26,10 +26,10 @@ let handle_input () =
             in
             match key with `Escape -> terminate () | _ -> ())
         | _ -> ()
-      else raise_notrace Continue
+      else raise_notrace Break
     done
   with
-  | Continue -> ()
+  | Break -> ()
   | Exit -> raise_notrace Exit
 
 let render renderer framebuffer =
@@ -39,6 +39,7 @@ let render renderer framebuffer =
 
 (* TODO debug vs non-debug versions *)
 let update () =
+  (* TODO reset cyc *)
   while state.state = Running && state.cyc < R3000.clockrate do
     state.state <- R3000.fetch_decode_execute ();
     state.cyc <- state.cyc + state.cpi

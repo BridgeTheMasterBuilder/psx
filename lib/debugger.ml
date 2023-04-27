@@ -75,7 +75,7 @@ let connect () =
         "-ex";
         "layout regs";
         "-ex";
-        "watch *0xfffe0130";
+        "rwatch *0xA0000000";
         "-ex";
         "c";
       |]
@@ -134,13 +134,24 @@ let connect () =
                        R3000.state.breakpoints;
                    respond client "OK"
                | Packet (InsertWriteWatchpoint { addr; _ }) ->
-                   R3000.state.watchpoints <- addr :: R3000.state.watchpoints;
+                   R3000.state.write_watchpoints <-
+                     addr :: R3000.state.write_watchpoints;
                    respond client "OK"
                | Packet (RemoveWriteWatchpoint { addr; _ }) ->
-                   R3000.state.watchpoints <-
+                   R3000.state.write_watchpoints <-
                      List.filter
                        (fun watchpoint -> watchpoint <> addr)
-                       R3000.state.watchpoints;
+                       R3000.state.write_watchpoints;
+                   respond client "OK"
+               | Packet (InsertReadWatchpoint { addr; _ }) ->
+                   R3000.state.read_watchpoints <-
+                     addr :: R3000.state.read_watchpoints;
+                   respond client "OK"
+               | Packet (RemoveReadWatchpoint { addr; _ }) ->
+                   R3000.state.read_watchpoints <-
+                     List.filter
+                       (fun watchpoint -> watchpoint <> addr)
+                       R3000.state.read_watchpoints;
                    respond client "OK"
                | Packet Continue ->
                    Psx.state.state <- Running;
