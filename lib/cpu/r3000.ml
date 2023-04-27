@@ -238,6 +238,12 @@ let rtype_insn_map : (int -> int -> int -> int -> unit) array =
     invalid_rtype_insn 35;
     invalid_rtype_insn 36;
     rtype_execute or_insn;
+    invalid_rtype_insn 38;
+    invalid_rtype_insn 39;
+    invalid_rtype_insn 40;
+    invalid_rtype_insn 41;
+    invalid_rtype_insn 42;
+    invalid_rtype_insn 43;
   |]
 
 let mfc0 rt rd = state.regs.(rt) <- state.cop0_regs.(rd)

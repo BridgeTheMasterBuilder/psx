@@ -19,7 +19,7 @@ let map_file_array1 path =
 let terminate () = raise_notrace Exit
 let run renderer texture = Psx.run renderer texture
 
-let init () =
+let init debug =
   try
     Sdl.init Sdl.Init.video |> unwrap |> ignore;
     at_exit (fun () -> Sdl.quit ());
@@ -46,7 +46,7 @@ let init () =
 
     let bios = map_file_array1 bios_path in
     Bios.load bios;
-    Debugger.connect ();
+    if debug then Debugger.connect ();
     (renderer, texture)
     (* run renderer texture *)
   with SdlError e ->
