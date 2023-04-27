@@ -23,7 +23,7 @@ let init debug =
   try
     Sdl.init Sdl.Init.video |> unwrap |> ignore;
     at_exit (fun () -> Sdl.quit ());
-    Sdl.(log_set_priority Log.category_application Log.priority_debug);
+    (* Sdl.(log_set_priority Log.category_application Log.priority_debug); *)
     let x = Sdl.Window.pos_centered in
     let y = Sdl.Window.pos_centered in
     let window =

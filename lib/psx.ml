@@ -40,9 +40,10 @@ let render renderer framebuffer =
 (* TODO debug vs non-debug versions *)
 let update () =
   (* TODO reset cyc *)
-  while state.state = Running && state.cyc < R3000.clockrate do
+  while state.state = Running && state.cyc < R3000.clockrate / 60 do
     state.state <- R3000.fetch_decode_execute ();
-    state.cyc <- state.cyc + state.cpi
+    state.cyc <- state.cyc + state.cpi;
+    Sdl.(log_debug Log.category_application "Cycles: %d\n" state.cyc)
   done
 
 let run renderer framebuffer =
@@ -55,5 +56,5 @@ let run renderer framebuffer =
   (* let frame_end = Unix.gettimeofday () in *)
   ()
 (* Sdl.(
-   log_debug Log.category_application "%f fps\n"
+   log_critical Log.category_application "%f fps\n"
      (1.0 /. (frame_end -. frame_start))) *)

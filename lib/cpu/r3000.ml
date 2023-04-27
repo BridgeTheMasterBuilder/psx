@@ -18,7 +18,7 @@ type t = {
   mutable state : state;
 }
 
-let clockrate = 33_868_800_000
+let clockrate = 33_868_800
 
 let state =
   {
@@ -192,6 +192,9 @@ let or_insn rd rs rt _ =
   let result = state.regs.(rs lor rt) in
   state.regs.(rd) <- result
 
+let sltu rd rs rt _ =
+  state.regs.(rd) <- (if state.regs.(rs) < state.regs.(rt) then 1 else 0)
+
 let rtype_execute insn rs rt rd shamt =
   insn rs rt rd shamt;
   incr_pc ()
@@ -243,7 +246,7 @@ let rtype_insn_map : (int -> int -> int -> int -> unit) array =
     invalid_rtype_insn 40;
     invalid_rtype_insn 41;
     invalid_rtype_insn 42;
-    invalid_rtype_insn 43;
+    rtype_execute sltu;
   |]
 
 let mfc0 rt rd = state.regs.(rt) <- state.cop0_regs.(rd)
