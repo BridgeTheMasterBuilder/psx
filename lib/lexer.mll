@@ -14,10 +14,14 @@ type packet =
     | Step of int option
     | InsertSwBreak of { addr: int; kind: int; }
     | RemoveSwBreak of { addr: int; kind: int; }
+    | InsertHwBreak of { addr: int; kind: int; }
+    | RemoveHwBreak of { addr: int; kind: int; }
     | InsertWriteWatchpoint of { addr: int; kind: int; }
     | RemoveWriteWatchpoint of { addr: int; kind: int; }
     | InsertReadWatchpoint of { addr: int; kind: int; }
     | RemoveReadWatchpoint of { addr: int; kind: int; }
+    | InsertAccessWatchpoint of { addr: int; kind: int; }
+    | RemoveAccessWatchpoint of { addr: int; kind: int; }
     | Continue
     | SetOperation of { op: char; tid: int }
     | QueryThreadId
@@ -93,6 +97,18 @@ rule lex = parse
     let kind = parse_hex kind in 
     Packet (RemoveSwBreak { addr; kind }) 
 } 
+| "$Z1," (hex_digit+ as addr) ',' (hex_digit+ as kind) '#' (checksum as cs) { 
+    sanity_check (Printf.sprintf "Z1,%s,%s" addr kind) cs; 
+    let addr = parse_hex addr in 
+    let kind = parse_hex kind in 
+    Packet (InsertHwBreak { addr; kind }) 
+} 
+| "$z1," (hex_digit+ as addr) ',' (hex_digit+ as kind) '#' (checksum as cs) { 
+    sanity_check (Printf.sprintf "z1,%s,%s" addr kind) cs; 
+    let addr = parse_hex addr in 
+    let kind = parse_hex kind in 
+    Packet (RemoveHwBreak { addr; kind }) 
+} 
 | "$Z2," (hex_digit+ as addr) ',' (hex_digit+ as kind) '#' (checksum as cs) { 
     sanity_check (Printf.sprintf "Z2,%s,%s" addr kind) cs; 
     let addr = parse_hex addr in 
@@ -116,6 +132,18 @@ rule lex = parse
     let addr = parse_hex addr in 
     let kind = parse_hex kind in 
     Packet (RemoveReadWatchpoint { addr; kind }) 
+} 
+| "$Z4," (hex_digit+ as addr) ',' (hex_digit+ as kind) '#' (checksum as cs) { 
+    sanity_check (Printf.sprintf "Z4,%s,%s" addr kind) cs; 
+    let addr = parse_hex addr in 
+    let kind = parse_hex kind in 
+    Packet (InsertAccessWatchpoint { addr; kind }) 
+} 
+| "$z4," (hex_digit+ as addr) ',' (hex_digit+ as kind) '#' (checksum as cs) { 
+    sanity_check (Printf.sprintf "z4,%s,%s" addr kind) cs; 
+    let addr = parse_hex addr in 
+    let kind = parse_hex kind in 
+    Packet (RemoveAccessWatchpoint { addr; kind }) 
 } 
 | "$c#" (checksum as cs) { sanity_check "c" cs; Packet Continue } 
 | "$H" (operation as op) (hex_digit+ as id) '#' (checksum as cs) { 

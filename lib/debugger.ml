@@ -124,10 +124,12 @@ let connect () =
                    R3000.fetch_decode_execute () |> ignore;
                    respond client "S05"
                (* | Packet (Step (Some addr)) -> () *)
-               | Packet (InsertSwBreak { addr; _ }) ->
+               | Packet (InsertSwBreak { addr; _ })
+               | Packet (InsertHwBreak { addr; _ }) ->
                    R3000.state.breakpoints <- addr :: R3000.state.breakpoints;
                    respond client "OK"
-               | Packet (RemoveSwBreak { addr; _ }) ->
+               | Packet (RemoveSwBreak { addr; _ })
+               | Packet (RemoveHwBreak { addr; _ }) ->
                    R3000.state.breakpoints <-
                      List.filter
                        (fun breakpoint -> breakpoint <> addr)
@@ -152,6 +154,22 @@ let connect () =
                      List.filter
                        (fun watchpoint -> watchpoint <> addr)
                        R3000.state.read_watchpoints;
+                   respond client "OK"
+               | Packet (InsertAccessWatchpoint { addr; _ }) ->
+                   R3000.state.read_watchpoints <-
+                     addr :: R3000.state.read_watchpoints;
+                   R3000.state.write_watchpoints <-
+                     addr :: R3000.state.write_watchpoints;
+                   respond client "OK"
+               | Packet (RemoveAccessWatchpoint { addr; _ }) ->
+                   R3000.state.read_watchpoints <-
+                     List.filter
+                       (fun watchpoint -> watchpoint <> addr)
+                       R3000.state.read_watchpoints;
+                   R3000.state.write_watchpoints <-
+                     List.filter
+                       (fun watchpoint -> watchpoint <> addr)
+                       R3000.state.write_watchpoints;
                    respond client "OK"
                | Packet Continue ->
                    Psx.state.state <- Running;
