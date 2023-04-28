@@ -44,7 +44,8 @@ let update () =
     state.state <- R3000.fetch_decode_execute ();
     state.cyc <- state.cyc + state.cpi;
     Sdl.(log_debug Log.category_application "Cycles: %d\n" state.cyc)
-  done
+  done;
+  state.cyc <- 0
 
 let run renderer framebuffer =
   if not state.running then terminate ();

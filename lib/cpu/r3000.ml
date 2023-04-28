@@ -188,11 +188,11 @@ let jtype_insn_map : (int -> unit) array =
     invalid_jtype_insn 3;
   |]
 
-let or_insn rd rs rt _ =
+let or_insn rs rt rd _ =
   let result = state.regs.(rs lor rt) in
   state.regs.(rd) <- result
 
-let sltu rd rs rt _ =
+let sltu rs rt rd _ =
   state.regs.(rd) <- (if state.regs.(rs) < state.regs.(rt) then 1 else 0)
 
 let rtype_execute insn rs rt rd shamt =

@@ -75,7 +75,7 @@ let connect () =
         "-ex";
         "layout regs";
         "-ex";
-        "rwatch *0xA0000000";
+        "b *0xbfc003b8";
         "-ex";
         "c";
       |]
