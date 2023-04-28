@@ -108,11 +108,9 @@ let sw base rt off =
   quiet (fun _ ->
       assert (Bus.read_u32 addr = state.regs.(rt) || Bus.read_u32 addr = -1))
 
-let itype_execute insn rs rt immediate = insn rs rt immediate
-let itype_execute_no_incr insn = insn
 let watchpoint_acknowledged = ref false
 
-let itype_execute_watched read write insn rs rt immediate =
+let execute_watched read write insn rs rt immediate =
   let addr = state.regs.(rs) + i64_of_i16 immediate in
   if
     ((write && List.mem addr state.write_watchpoints)
@@ -127,8 +125,8 @@ let itype_execute_watched read write insn rs rt immediate =
     watchpoint_acknowledged := false;
     state.state <- state.old_state)
 
-let itype_execute_watch_writes insn = itype_execute_watched false true insn
-let itype_execute_watch_reads insn = itype_execute_watched true false insn
+let with_watched_writes insn = execute_watched false true insn
+let with_watched_reads insn = execute_watched true false insn
 
 let itype_insn_map : (int -> int -> int -> unit) array =
   [|
@@ -137,17 +135,17 @@ let itype_insn_map : (int -> int -> int -> unit) array =
     invalid_itype_insn 2;
     invalid_itype_insn 3;
     invalid_itype_insn 4;
-    itype_execute_no_incr bne;
+    bne;
     invalid_itype_insn 6;
     invalid_itype_insn 7;
-    itype_execute addi;
-    itype_execute addiu;
+    addi;
+    addiu;
     invalid_itype_insn 10;
     invalid_itype_insn 11;
     invalid_itype_insn 12;
-    itype_execute ori;
+    ori;
     invalid_itype_insn 14;
-    itype_execute lui;
+    lui;
     invalid_itype_insn 16;
     invalid_itype_insn 17;
     invalid_itype_insn 18;
@@ -167,7 +165,7 @@ let itype_insn_map : (int -> int -> int -> unit) array =
     invalid_itype_insn 32;
     invalid_itype_insn 33;
     invalid_itype_insn 34;
-    itype_execute_watch_reads lw;
+    with_watched_reads lw;
     invalid_itype_insn 36;
     invalid_itype_insn 37;
     invalid_itype_insn 38;
@@ -175,7 +173,7 @@ let itype_insn_map : (int -> int -> int -> unit) array =
     invalid_itype_insn 40;
     invalid_itype_insn 41;
     invalid_itype_insn 42;
-    itype_execute_watch_writes sw;
+    with_watched_writes sw;
   |]
 
 let j target =
@@ -184,15 +182,8 @@ let j target =
   let target = high_bits lor target in
   set_pc target
 
-let jtype_execute insn = insn
-
 let jtype_insn_map : (int -> unit) array =
-  [|
-    invalid_jtype_insn 0;
-    invalid_jtype_insn 1;
-    jtype_execute j;
-    invalid_jtype_insn 3;
-  |]
+  [| invalid_jtype_insn 0; invalid_jtype_insn 1; j; invalid_jtype_insn 3 |]
 
 let or_insn rs rt rd _ =
   let result = state.regs.(rs lor rt) in
@@ -200,9 +191,6 @@ let or_insn rs rt rd _ =
 
 let sltu rs rt rd _ =
   state.regs.(rd) <- (if state.regs.(rs) < state.regs.(rt) then 1 else 0)
-
-let rtype_execute insn rs rt rd shamt = insn rs rt rd shamt
-let rtype_execute_no_incr insn = insn
 
 let rtype_insn_map : (int -> int -> int -> int -> unit) array =
   [|
@@ -243,27 +231,26 @@ let rtype_insn_map : (int -> int -> int -> int -> unit) array =
     invalid_rtype_insn 34;
     invalid_rtype_insn 35;
     invalid_rtype_insn 36;
-    rtype_execute or_insn;
+    or_insn;
     invalid_rtype_insn 38;
     invalid_rtype_insn 39;
     invalid_rtype_insn 40;
     invalid_rtype_insn 41;
     invalid_rtype_insn 42;
-    rtype_execute sltu;
+    sltu;
   |]
 
 let mfc0 rt rd = state.regs.(rt) <- state.cop0_regs.(rd)
 let mtc0 rt rd = state.cop0_regs.(rd) <- state.regs.(rt)
 let rfe _ _ = failwith "RFE unimplemented"
-let cop0_execute insn rt rd = insn rt rd
 
 let cop0_insn_map : (int -> int -> unit) array =
   [|
-    cop0_execute mfc0;
+    mfc0;
     invalid_cop0_insn 1;
     invalid_cop0_insn 2;
     invalid_cop0_insn 3;
-    cop0_execute mtc0;
+    mtc0;
     invalid_cop0_insn 5;
     invalid_cop0_insn 6;
     invalid_cop0_insn 7;
@@ -275,7 +262,7 @@ let cop0_insn_map : (int -> int -> unit) array =
     invalid_cop0_insn 13;
     invalid_cop0_insn 14;
     invalid_cop0_insn 15;
-    cop0_execute rfe;
+    rfe;
   |]
 
 let execute = function
