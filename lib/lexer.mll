@@ -30,6 +30,7 @@ type packet =
     | QueryThreadInfoFirst
     | QueryThreadInfoSubsequent
     | QXfer of qxfer
+    | QStartNoAckMode
     | Unimplemented
 
 type message = 
@@ -161,4 +162,5 @@ rule lex = parse
 | "$qfThreadInfo#" (checksum as cs) { sanity_check "qfThreadInfo" cs; Packet QueryThreadInfoFirst } 
 | "$qsThreadInfo#" (checksum as cs) { sanity_check "qsThreadInfo" cs; Packet QueryThreadInfoSubsequent } 
 | "$qXfer:features:read:target.xml:" (hex_digit+ as offset) ',' (hex_digit+ as length) '#' (checksum as cs) { sanity_check (Printf.sprintf "qXfer:features:read:target.xml:%s,%s" offset length) cs; Packet (QXfer (FeaturesRead "target.xml")) } 
+| "$QStartNoAckMode#" (checksum as cs) { sanity_check "QStartNoAckMode" cs; Packet QStartNoAckMode } 
 | '$' [^'#']* '#' checksum { Packet Unimplemented }

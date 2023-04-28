@@ -16,6 +16,7 @@ type t = {
   mutable write_watchpoints : int list;
   mutable read_watchpoints : int list;
   mutable state : state;
+  mutable old_state : state;
 }
 
 let clockrate = 33_868_800
@@ -23,32 +24,41 @@ let clockrate = 33_868_800
 let state =
   {
     regs = Array.make 32 0;
-    cur_pc = 0xBFC00000;
-    next_pc = 0xBFC00004;
+    cur_pc = 0xBFBFFFFC;
+    next_pc = 0xBFC00000;
     cop0_regs = Array.make 32 0;
     breakpoints = [];
     write_watchpoints = [];
     read_watchpoints = [];
     state = Running;
+    old_state = Running;
   }
 
 let dump_registers () =
   Array.to_list state.regs @ [ 0; 0; 0; 0; 0; state.cur_pc; 0; 0; 0 ]
 
-let fetch () = Bus.read_u32 state.cur_pc
 let pc () = state.cur_pc
 
 (* TODO maybe adjust CPI *)
-let set_pc addr =
+let set_pc addr = state.next_pc <- addr land 0xFFFFFFFF
+
+let set_state s =
+  state.state <- s;
+  state.old_state <- s
+
+let incr_pc () =
   state.cur_pc <- state.next_pc;
-  state.next_pc <- addr land 0xFFFFFFFF;
+  set_pc (state.next_pc + 4);
   let pc = pc () in
   if List.mem pc state.breakpoints then (
     Sdl.(log_debug Log.category_application "Hit breakpoint at %X" pc);
-    state.state <- Breakpoint)
+    set_state Breakpoint)
 
-let incr_pc () = set_pc (state.next_pc + 4)
 let add_pc offset = set_pc (state.next_pc + offset)
+
+let fetch () =
+  incr_pc ();
+  Bus.read_u32 state.cur_pc
 
 (* TODO Invalid, not just unimplemented *)
 let invalid_itype_insn op _ _ _ =
@@ -69,7 +79,7 @@ let invalid_cop0_insn op _ _ =
 
 let bne rs rt off =
   let off = i64_of_i16 off lsl 2 in
-  if state.regs.(rs) <> state.regs.(rt) then add_pc off else incr_pc ()
+  if state.regs.(rs) <> state.regs.(rt) then add_pc off else add_pc 4
 
 (* TODO overflow exception *)
 let addi rs rt imm =
@@ -98,10 +108,7 @@ let sw base rt off =
   quiet (fun _ ->
       assert (Bus.read_u32 addr = state.regs.(rt) || Bus.read_u32 addr = -1))
 
-let itype_execute insn rs rt immediate =
-  insn rs rt immediate;
-  incr_pc ()
-
+let itype_execute insn rs rt immediate = insn rs rt immediate
 let itype_execute_no_incr insn = insn
 let watchpoint_acknowledged = ref false
 
@@ -117,9 +124,8 @@ let itype_execute_watched read write insn rs rt immediate =
     state.state <- Watchpoint)
   else (
     insn rs rt immediate;
-    incr_pc ();
     watchpoint_acknowledged := false;
-    state.state <- Running)
+    state.state <- state.old_state)
 
 let itype_execute_watch_writes insn = itype_execute_watched false true insn
 let itype_execute_watch_reads insn = itype_execute_watched true false insn
@@ -195,10 +201,7 @@ let or_insn rs rt rd _ =
 let sltu rs rt rd _ =
   state.regs.(rd) <- (if state.regs.(rs) < state.regs.(rt) then 1 else 0)
 
-let rtype_execute insn rs rt rd shamt =
-  insn rs rt rd shamt;
-  incr_pc ()
-
+let rtype_execute insn rs rt rd shamt = insn rs rt rd shamt
 let rtype_execute_no_incr insn = insn
 
 let rtype_insn_map : (int -> int -> int -> int -> unit) array =
@@ -252,10 +255,7 @@ let rtype_insn_map : (int -> int -> int -> int -> unit) array =
 let mfc0 rt rd = state.regs.(rt) <- state.cop0_regs.(rd)
 let mtc0 rt rd = state.cop0_regs.(rd) <- state.regs.(rt)
 let rfe _ _ = failwith "RFE unimplemented"
-
-let cop0_execute insn rt rd =
-  insn rt rd;
-  incr_pc ()
+let cop0_execute insn rt rd = insn rt rd
 
 let cop0_insn_map : (int -> int -> unit) array =
   [|
@@ -291,8 +291,7 @@ let fetch_decode_execute () =
   (match insn with
   | Rtype { op; rs = 0; rt = 0; rd = 0; shamt = 0 }
     when rtype_opcode_map.(op) = Sll ->
-      Sdl.(log_debug Log.category_application "%X: NOP" pc);
-      incr_pc ()
+      Sdl.(log_debug Log.category_application "%X: NOP" pc)
   | _ ->
       Sdl.(log_debug Log.category_application "%X: %s" pc (Insn.show_insn insn));
       execute insn);

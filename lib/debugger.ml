@@ -9,6 +9,7 @@ type state = {
   mutable last_message : string;
   mutable pid : int;
   mutable thread : Thread.t option;
+  mutable no_ack_mode : bool;
 }
 
 let state =
@@ -20,6 +21,7 @@ let state =
     last_message = "";
     pid = 0;
     thread = None;
+    no_ack_mode = false;
   }
 
 let wait_for_connection () =
@@ -36,7 +38,10 @@ let wait_for_connection () =
 let respond client data =
   state.last_message <- data;
   let message =
-    Printf.sprintf "+$%s#%02x" data (Lexer.calculate_checksum data)
+    Printf.sprintf "%s$%s#%02x"
+      (if not state.no_ack_mode then "+" else "")
+      data
+      (Lexer.calculate_checksum data)
   in
   print_endline ("-> " ^ message);
   Unix.send client (Bytes.of_string message) 0 (String.length message) []
@@ -75,7 +80,9 @@ let connect () =
         "-ex";
         "layout regs";
         "-ex";
-        "b *0xbfc003b8";
+        "b *0xbfc00000";
+        "-ex";
+        "b *0xbfc00250";
         "-ex";
         "c";
       |]
@@ -115,7 +122,7 @@ let connect () =
                    (* TODO *)
                | Packet (QSupported _features) ->
                    respond client
-                     "multiprocess+;vContSupported+;qXfer:features:read+"
+                     "multiprocess+;vContSupported+;qXfer:features:read+;QStartNoAckMode+"
                | Packet Kill ->
                    respond client "";
                    state.running <- false;
@@ -173,7 +180,7 @@ let connect () =
                    respond client "OK"
                | Packet Continue ->
                    Psx.state.state <- Running;
-                   R3000.state.state <- Running;
+                   R3000.set_state Running;
                    while
                      Psx.state.state <> Breakpoint
                      && Psx.state.state <> Watchpoint
@@ -195,6 +202,9 @@ let connect () =
   <architecture>mips:3000</architecture>
   <osabi>none</osabi>
 </target>|}
+               | Packet QStartNoAckMode ->
+                   respond client "OK";
+                   state.no_ack_mode <- true
                | _ -> respond client ""
              with Sys_blocked_io -> Unix.select [ client ] [] [] 0.1 |> ignore
            done)

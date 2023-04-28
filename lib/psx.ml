@@ -45,7 +45,7 @@ let update () =
     state.cyc <- state.cyc + state.cpi;
     Sdl.(log_debug Log.category_application "Cycles: %d\n" state.cyc)
   done;
-  state.cyc <- 0
+  if state.cyc = R3000.clockrate / 60 then state.cyc <- 0 (* TODO *)
 
 let run renderer framebuffer =
   if not state.running then terminate ();
