@@ -48,11 +48,7 @@ let set_state s =
 
 let incr_pc () =
   state.cur_pc <- state.next_pc;
-  set_pc (state.next_pc + 4);
-  let pc = pc () in
-  if List.mem pc state.breakpoints then (
-    Sdl.(log_debug Log.category_application "Hit breakpoint at %X" pc);
-    set_state Breakpoint)
+  set_pc (state.next_pc + 4)
 
 let add_pc offset = set_pc (state.next_pc + offset)
 
@@ -185,6 +181,10 @@ let j target =
 let jtype_insn_map : (int -> unit) array =
   [| invalid_jtype_insn 0; invalid_jtype_insn 1; j; invalid_jtype_insn 3 |]
 
+let sll _ rt rd shamt =
+  let result = state.regs.(rt) lsl shamt in
+  state.regs.(rd) <- result
+
 let or_insn rs rt rd _ =
   let result = state.regs.(rs lor rt) in
   state.regs.(rd) <- result
@@ -194,7 +194,7 @@ let sltu rs rt rd _ =
 
 let rtype_insn_map : (int -> int -> int -> int -> unit) array =
   [|
-    invalid_rtype_insn 0;
+    sll;
     invalid_rtype_insn 1;
     invalid_rtype_insn 2;
     invalid_rtype_insn 3;
@@ -271,15 +271,10 @@ let execute = function
   | Rtype { op; rs; rt; rd; shamt } -> rtype_insn_map.(op) rs rt rd shamt
   | Cop0 { op; rt; rd } -> cop0_insn_map.(op) rt rd
 
+let check_for_breakpoint pc =
+  if List.mem pc state.breakpoints then set_state Breakpoint
+
 let fetch_decode_execute () =
-  let pc = pc () in
   let word = fetch () in
   let insn = Decoder.decode word in
-  (match insn with
-  | Rtype { op; rs = 0; rt = 0; rd = 0; shamt = 0 }
-    when rtype_opcode_map.(op) = Sll ->
-      Sdl.(log_debug Log.category_application "%X: NOP" pc)
-  | _ ->
-      Sdl.(log_debug Log.category_application "%X: %s" pc (Insn.show_insn insn));
-      execute insn);
-  state.state
+  execute insn

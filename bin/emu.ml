@@ -43,7 +43,6 @@ let init debug =
       |> unwrap
     in
     at_exit (fun () -> Sdl.destroy_texture texture);
-
     let bios = map_file_array1 bios_path in
     Bios.load bios;
     if debug then Debugger.connect ();

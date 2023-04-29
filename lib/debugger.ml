@@ -90,7 +90,7 @@ let connect () =
   else wait_for_connection ();
   let client = Option.get state.client in
   let channel = Unix.in_channel_of_descr client in
-  Psx.state.state <- Halted;
+  R3000.state.state <- Halted;
   state.thread <-
     Some
       (Thread.create
@@ -179,11 +179,10 @@ let connect () =
                        R3000.state.write_watchpoints;
                    respond client "OK"
                | Packet Continue ->
-                   Psx.state.state <- Running;
                    R3000.set_state Running;
                    while
-                     Psx.state.state <> Breakpoint
-                     && Psx.state.state <> Watchpoint
+                     R3000.state.state <> Breakpoint
+                     && R3000.state.state <> Watchpoint
                    do
                      Unix.sleepf 0.5
                    done;
