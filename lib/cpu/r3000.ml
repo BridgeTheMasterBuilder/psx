@@ -110,7 +110,6 @@ let load base off =
   let addr = state.regs.(base) + i64_of_i16 off in
   Bus.read_u32 addr
 
-(* TODO sign extend result *)
 let lb base rt off = state.regs.(rt) <- load base off land 0xFF |> i32_of_i8
 let lh base rt off = state.regs.(rt) <- load base off land 0xFFFF
 let lw base rt off = state.regs.(rt) <- load base off
@@ -225,6 +224,11 @@ let jr rs _ _ _ =
   let target = state.regs.(rs) in
   set_pc target
 
+let jalr rs _ rd _ =
+  let target = state.regs.(rs) in
+  state.regs.(rd) <- state.next_pc;
+  set_pc target
+
 let add rs rt rd _ =
   let result =
     with_overflow_check (fun _ -> state.regs.(rs) + state.regs.(rt))
@@ -257,7 +261,7 @@ let rtype_insn_map : (int -> int -> int -> int -> unit) array =
     invalid_rtype_insn 6;
     invalid_rtype_insn 7;
     jr;
-    invalid_rtype_insn 9;
+    jalr;
     invalid_rtype_insn 10;
     invalid_rtype_insn 11;
     invalid_rtype_insn 12;
@@ -331,9 +335,10 @@ let check_for_breakpoint pc =
     set_state Breakpoint)
 
 let fetch_decode_execute () =
+  let pc = pc () in
   let word = fetch () in
   let insn = Decoder.decode word in
-  Sdl.(log_debug Log.category_application "%X: %s" (pc ()) (show_insn insn));
+  Sdl.(log_debug Log.category_application "%X: %s" pc (show_insn insn));
   execute insn;
   (* Sdl.(log_debug Log.category_application "State: %s" (show_state state.state)) *)
   ()

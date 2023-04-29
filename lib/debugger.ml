@@ -43,7 +43,7 @@ let respond client data =
       data
       (Lexer.calculate_checksum data)
   in
-  print_endline ("-> " ^ message);
+  (* print_endline ("-> " ^ message); *)
   Unix.send client (Bytes.of_string message) 0 (String.length message) []
   |> ignore
 
@@ -98,7 +98,7 @@ let connect () =
            while state.running do
              try
                let command = lex !lexbuf in
-               print_endline ("<- " ^ Lexing.lexeme !lexbuf);
+               (* print_endline ("<- " ^ Lexing.lexeme !lexbuf); *)
                match command with
                | Acknowledge -> ()
                | RequestRetransmission -> respond client state.last_message

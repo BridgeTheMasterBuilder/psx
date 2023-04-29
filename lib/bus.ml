@@ -74,7 +74,7 @@ let read_slow addr reader =
         addr);
     -1)
   else if addr = 0xFFFE0130 then !fffe0130
-  else failwithf "Unknown address %X" addr
+  else failwithf "Unknown address %X (%X)" addr unmirrored
 
 let write_slow addr data writer =
   let unmirrored = addr land 0x1FFFFFFF in
@@ -99,7 +99,7 @@ let write_slow addr data writer =
     Sdl.(
       log_debug Log.category_application
         "WRITE value %X to POST at %X (unimplemented)" data addr)
-  else failwithf "Unknown address %X" addr
+  else failwithf "Unknown address %X (%X)" addr unmirrored
 
 let read addr reader =
   let page = addr lsr 16 in
