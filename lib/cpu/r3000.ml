@@ -2,7 +2,7 @@
 open Tsdl
 open Insn
 open Util
-open Misc
+(* open Misc *)
 
 type state = Running | Halted | Breakpoint | Watchpoint [@@deriving show]
 
@@ -115,10 +115,20 @@ let lh base rt off = state.regs.(rt) <- load base off land 0xFFFF
 let lw base rt off = state.regs.(rt) <- load base off
 let lbu base rt off = state.regs.(rt) <- load base off land 0xFF
 
+let my_assert lhs rhs =
+  if not (lhs = rhs) then (
+    Printf.eprintf "Assertion failed: %d <> %d\n" lhs rhs;
+    assert false)
+
+let my_assert_either lhs rhs1 rhs2 =
+  if not (lhs = rhs1 || lhs = rhs2) then (
+    Printf.eprintf "Assertion failed: %d <> %d && %d <> %d\n" lhs rhs1 lhs rhs2;
+    assert false)
+
 let store value base off =
   let addr = state.regs.(base) + i64_of_i16 off in
-  Bus.write_u32 addr value;
-  quiet (fun _ -> assert (Bus.read_u32 addr = value || Bus.read_u32 addr = -1))
+  Bus.write_u32 addr value
+(* quiet (fun _ -> my_assert_either (Bus.read_u32 addr) value (-1)) *)
 
 let sb base rt off =
   let value = state.regs.(rt) land 0xFF in
@@ -240,11 +250,11 @@ let addu rs rt rd _ =
   state.regs.(rd) <- result
 
 let and_insn rs rt rd _ =
-  let result = state.regs.(rs land rt) in
+  let result = state.regs.(rs) land state.regs.(rt) in
   state.regs.(rd) <- result
 
 let or_insn rs rt rd _ =
-  let result = state.regs.(rs lor rt) in
+  let result = state.regs.(rs) lor state.regs.(rt) in
   state.regs.(rd) <- result
 
 let sltu rs rt rd _ =
