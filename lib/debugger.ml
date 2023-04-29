@@ -80,9 +80,7 @@ let connect () =
         "-ex";
         "layout regs";
         "-ex";
-        "b *0xbfc00000";
-        "-ex";
-        "b *0xbfc00250";
+        "b *0xBFC06ED0";
         "-ex";
         "c";
       |]
@@ -90,7 +88,7 @@ let connect () =
   else wait_for_connection ();
   let client = Option.get state.client in
   let channel = Unix.in_channel_of_descr client in
-  R3000.state.state <- Halted;
+  R3000.set_state Halted;
   state.thread <-
     Some
       (Thread.create
@@ -128,7 +126,7 @@ let connect () =
                    state.running <- false;
                    Psx.state.running <- false
                | Packet (Step None) ->
-                   R3000.fetch_decode_execute () |> ignore;
+                   R3000.fetch_decode_execute ();
                    respond client "S05"
                (* | Packet (Step (Some addr)) -> () *)
                | Packet (InsertSwBreak { addr; _ })

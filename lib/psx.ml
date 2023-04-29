@@ -38,7 +38,7 @@ let update () =
   (* TODO reset cyc *)
   (try
      while R3000.state.state = Running && state.cyc < R3000.clockrate / 60 do
-       let pc = R3000.state.next_pc in
+       let pc = R3000.pc () in
        R3000.check_for_breakpoint pc;
        if R3000.state.state <> Running then raise_notrace Break;
        R3000.fetch_decode_execute ();

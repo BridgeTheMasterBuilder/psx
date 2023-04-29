@@ -53,7 +53,12 @@ let fffe0130 = ref 0
 
 let read_slow addr reader =
   let unmirrored = addr land 0x1FFFFFFF in
-  if unmirrored >= 0x1F800000 && unmirrored < 0x1F800400 then (
+  if unmirrored >= 0x1F000000 && unmirrored < 0x1F800000 then (
+    Sdl.(
+      log_debug Log.category_application
+        "READ from Expansion Region 1 at %X (unimplemented)" addr);
+    0)
+  else if unmirrored >= 0x1F800000 && unmirrored < 0x1F800400 then (
     let offset = addr land 0xFFF in
     Sdl.(
       log_debug Log.category_application "READ scratchpad at address #%d" addr);
@@ -62,6 +67,11 @@ let read_slow addr reader =
     Sdl.(
       log_debug Log.category_application
         "READ from I/O port at %X (unimplemented)" addr);
+    -1)
+  else if unmirrored = 0x1F802041 then (
+    Sdl.(
+      log_debug Log.category_application "READ from POST at %X (unimplemented)"
+        addr);
     -1)
   else if addr = 0xFFFE0130 then !fffe0130
   else failwithf "Unknown address %X" addr
@@ -85,6 +95,10 @@ let write_slow addr data writer =
     if data = 0x1E988 then page_table_w := page_table_w_normal
     else page_table_w := page_table_w_with_cache_isolation;
     fffe0130 := data)
+  else if unmirrored = 0x1F802041 then
+    Sdl.(
+      log_debug Log.category_application
+        "WRITE value %X to POST at %X (unimplemented)" data addr)
   else failwithf "Unknown address %X" addr
 
 let read addr reader =

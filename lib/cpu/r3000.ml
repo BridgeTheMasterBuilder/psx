@@ -4,8 +4,7 @@ open Insn
 open Util
 open Misc
 
-type state = Running | Halted | Breakpoint | Watchpoint
-(* [@@deriving show] *)
+type state = Running | Halted | Breakpoint | Watchpoint [@@deriving show]
 
 type t = {
   regs : int array;
@@ -24,8 +23,8 @@ let clockrate = 33_868_800
 let state =
   {
     regs = Array.make 32 0;
-    cur_pc = 0xBFBFFFFC;
-    next_pc = 0xBFC00000;
+    cur_pc = 0xBFC00000;
+    next_pc = 0xBFC00004;
     cop0_regs = Array.make 32 0;
     breakpoints = [];
     write_watchpoints = [];
@@ -50,11 +49,10 @@ let incr_pc () =
   state.cur_pc <- state.next_pc;
   set_pc (state.next_pc + 4)
 
-let add_pc offset = set_pc (state.next_pc + offset)
-
 let fetch () =
+  let word = Bus.read_u32 state.cur_pc in
   incr_pc ();
-  Bus.read_u32 state.cur_pc
+  word
 
 (* TODO Invalid, not just unimplemented *)
 let invalid_itype_insn op _ _ _ =
@@ -73,17 +71,31 @@ let invalid_cop0_insn op _ _ =
   failwithf "Unimplemented COP-0 instruction: %s"
     (show_mnemonic cop0_opcode_map.(op))
 
-let bne rs rt off =
+let bcc cond off =
   let off = i64_of_i16 off lsl 2 in
-  if state.regs.(rs) <> state.regs.(rt) then add_pc off else add_pc 4
+  if cond then set_pc (state.cur_pc + off)
 
-(* TODO overflow exception *)
+let beq rs rt off = bcc (state.regs.(rs) = state.regs.(rt)) off
+let bne rs rt off = bcc (state.regs.(rs) <> state.regs.(rt)) off
+let blez rs _ off = bcc (state.regs.(rs) <= 0) off
+let bgtz rs _ off = bcc (state.regs.(rs) > 0) off
+
+let with_overflow_check f =
+  let result = f () in
+  if false then failwith "Overflow" else result
+
 let addi rs rt imm =
-  let result = state.regs.(rs) + i64_of_i16 imm in
+  let result =
+    with_overflow_check (fun _ -> state.regs.(rs) + i64_of_i16 imm)
+  in
   state.regs.(rt) <- result
 
 let addiu rs rt imm =
-  let result = state.regs.(rs) + i64_of_i16 imm in
+  let result = (state.regs.(rs) + i64_of_i16 imm) land 0xFFFFFFFF in
+  state.regs.(rt) <- result
+
+let andi rs rt imm =
+  let result = state.regs.(rs) land imm in
   state.regs.(rt) <- result
 
 let ori rs rt imm =
@@ -94,16 +106,30 @@ let lui _ rt imm =
   let result = imm lsl 16 in
   state.regs.(rt) <- result
 
-let lw base rt off =
+let load base off =
   let addr = state.regs.(base) + i64_of_i16 off in
-  state.regs.(rt) <- Bus.read_u32 addr
+  Bus.read_u32 addr
 
-let sw base rt off =
+(* TODO sign extend result *)
+let lb base rt off = state.regs.(rt) <- load base off land 0xFF |> i32_of_i8
+let lh base rt off = state.regs.(rt) <- load base off land 0xFFFF
+let lw base rt off = state.regs.(rt) <- load base off
+let lbu base rt off = state.regs.(rt) <- load base off land 0xFF
+
+let store value base off =
   let addr = state.regs.(base) + i64_of_i16 off in
-  Bus.write_u32 addr state.regs.(rt);
-  quiet (fun _ ->
-      assert (Bus.read_u32 addr = state.regs.(rt) || Bus.read_u32 addr = -1))
+  Bus.write_u32 addr value;
+  quiet (fun _ -> assert (Bus.read_u32 addr = value || Bus.read_u32 addr = -1))
 
+let sb base rt off =
+  let value = state.regs.(rt) land 0xFF in
+  store value base off
+
+let sh base rt off =
+  let value = state.regs.(rt) land 0xFFFF in
+  store value base off
+
+let sw base rt off = store state.regs.(rt) base off
 let watchpoint_acknowledged = ref false
 
 let execute_watched read write insn rs rt immediate =
@@ -130,15 +156,15 @@ let itype_insn_map : (int -> int -> int -> unit) array =
     invalid_itype_insn 1;
     invalid_itype_insn 2;
     invalid_itype_insn 3;
-    invalid_itype_insn 4;
+    beq;
     bne;
-    invalid_itype_insn 6;
-    invalid_itype_insn 7;
+    blez;
+    bgtz;
     addi;
     addiu;
     invalid_itype_insn 10;
     invalid_itype_insn 11;
-    invalid_itype_insn 12;
+    andi;
     ori;
     invalid_itype_insn 14;
     lui;
@@ -158,31 +184,59 @@ let itype_insn_map : (int -> int -> int -> unit) array =
     invalid_itype_insn 29;
     invalid_itype_insn 30;
     invalid_itype_insn 31;
-    invalid_itype_insn 32;
-    invalid_itype_insn 33;
+    with_watched_reads lb;
+    with_watched_reads lh;
     invalid_itype_insn 34;
     with_watched_reads lw;
-    invalid_itype_insn 36;
+    with_watched_reads lbu;
     invalid_itype_insn 37;
     invalid_itype_insn 38;
     invalid_itype_insn 39;
-    invalid_itype_insn 40;
-    invalid_itype_insn 41;
+    with_watched_writes sb;
+    with_watched_writes sh;
     invalid_itype_insn 42;
     with_watched_writes sw;
   |]
 
-let j target =
+let calculate_effective_address target =
   let high_bits = bits_abs state.next_pc 28 31 in
   let target = target lsl 2 in
-  let target = high_bits lor target in
+  high_bits lor target
+
+let j target =
+  let target = calculate_effective_address target in
+  set_pc target
+
+let jal target =
+  let ra = 31 in
+  state.regs.(ra) <- state.next_pc;
+  let target = calculate_effective_address target in
   set_pc target
 
 let jtype_insn_map : (int -> unit) array =
-  [| invalid_jtype_insn 0; invalid_jtype_insn 1; j; invalid_jtype_insn 3 |]
+  [| invalid_jtype_insn 0; invalid_jtype_insn 1; j; jal |]
 
 let sll _ rt rd shamt =
   let result = state.regs.(rt) lsl shamt in
+  state.regs.(rd) <- result
+
+(* TODO address error exception *)
+let jr rs _ _ _ =
+  let target = state.regs.(rs) in
+  set_pc target
+
+let add rs rt rd _ =
+  let result =
+    with_overflow_check (fun _ -> state.regs.(rs) + state.regs.(rt))
+  in
+  state.regs.(rd) <- result
+
+let addu rs rt rd _ =
+  let result = (state.regs.(rs) + state.regs.(rt)) land 0xFFFFFFFF in
+  state.regs.(rd) <- result
+
+let and_insn rs rt rd _ =
+  let result = state.regs.(rs land rt) in
   state.regs.(rd) <- result
 
 let or_insn rs rt rd _ =
@@ -202,7 +256,7 @@ let rtype_insn_map : (int -> int -> int -> int -> unit) array =
     invalid_rtype_insn 5;
     invalid_rtype_insn 6;
     invalid_rtype_insn 7;
-    invalid_rtype_insn 8;
+    jr;
     invalid_rtype_insn 9;
     invalid_rtype_insn 10;
     invalid_rtype_insn 11;
@@ -226,11 +280,11 @@ let rtype_insn_map : (int -> int -> int -> int -> unit) array =
     invalid_rtype_insn 29;
     invalid_rtype_insn 30;
     invalid_rtype_insn 31;
-    invalid_rtype_insn 32;
-    invalid_rtype_insn 33;
+    add;
+    addu;
     invalid_rtype_insn 34;
     invalid_rtype_insn 35;
-    invalid_rtype_insn 36;
+    and_insn;
     or_insn;
     invalid_rtype_insn 38;
     invalid_rtype_insn 39;
@@ -272,9 +326,14 @@ let execute = function
   | Cop0 { op; rt; rd } -> cop0_insn_map.(op) rt rd
 
 let check_for_breakpoint pc =
-  if List.mem pc state.breakpoints then set_state Breakpoint
+  if List.mem pc state.breakpoints then (
+    Sdl.(log_debug Log.category_application "Hit breakpoint at %X" pc);
+    set_state Breakpoint)
 
 let fetch_decode_execute () =
   let word = fetch () in
   let insn = Decoder.decode word in
-  execute insn
+  Sdl.(log_debug Log.category_application "%X: %s" (pc ()) (show_insn insn));
+  execute insn;
+  (* Sdl.(log_debug Log.category_application "State: %s" (show_state state.state)) *)
+  ()
