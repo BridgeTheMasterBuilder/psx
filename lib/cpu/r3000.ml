@@ -1,6 +1,7 @@
 (* TODO maybe separate into different files *)
 open Tsdl
 open Insn
+open Register
 open Util
 open Misc
 
@@ -56,20 +57,16 @@ let fetch () =
 
 (* TODO Invalid, not just unimplemented *)
 let invalid_itype_insn op _ _ _ =
-  failwithf "Unimplemented I-Type instruction: %s"
-    (show_mnemonic itype_opcode_map.(op))
+  failwithf "Unimplemented I-Type instruction: %s" itype_opcode_map.(op)
 
 let invalid_jtype_insn op _ =
-  failwithf "Unimplemented J-Type instruction: %s"
-    (show_mnemonic jtype_opcode_map.(op))
+  failwithf "Unimplemented J-Type instruction: %s" jtype_opcode_map.(op)
 
 let invalid_rtype_insn op _ _ _ _ =
-  failwithf "Unimplemented R-Type instruction: %s"
-    (show_mnemonic rtype_opcode_map.(op))
+  failwithf "Unimplemented R-Type instruction: %s" rtype_opcode_map.(op)
 
 let invalid_cop0_insn op _ _ =
-  failwithf "Unimplemented COP-0 instruction: %s"
-    (show_mnemonic cop0_opcode_map.(op))
+  failwithf "Unimplemented COP-0 instruction: %s" cop0_opcode_map.(op)
 
 let bcc cond off =
   let off = i64_of_i16 off lsl 2 in
@@ -349,11 +346,33 @@ let check_for_breakpoint pc =
     Sdl.(log_debug Log.category_application "Hit breakpoint at %X" pc);
     set_state Breakpoint)
 
+let show_insn = function
+  | Itype { op = 43; rs; rt; immediate } ->
+      Printf.sprintf "%-6s $%s(%08x), 0x%04x(%s)([%08x] = %08x)" "sw"
+        register_map.(rt) state.regs.(rt) immediate register_map.(rs)
+        (state.regs.(rs) + i64_of_i16 immediate)
+        (load rs immediate Bus.read_u32)
+  | Itype { op; rs; rt; immediate } when rs = 0 || rs = rt ->
+      Printf.sprintf "%-6s $%s(%08x), 0x%04x" itype_opcode_map.(op)
+        register_map.(rt) state.regs.(rs) immediate
+  (* | Itype { op; rs; rt; immediate } ->
+      "" *)
+  (* Printf.sprintf "%-6s $%s(%08x), 0x%04X" itype_opcode_map.(op)
+     register_map.(rt) 0 immediate *)
+  | Jtype { op = 2; target } ->
+      Printf.sprintf "%-6s 0x%08x" "j" (calculate_effective_address target)
+  | Rtype { op = 0; rs = 0; rt = 0; rd = 0; shamt = 0 } -> "nop"
+  (* | Rtype { op = 37; rs; rt = 0; rd; _ } -> "move" *)
+  (* | Rtype { op; rs; rt; rd; shamt } -> rtype_opcode_map.(op) *)
+  (* | Cop0 { op; rt; rd } -> cop0_opcode_map.(op) *)
+  | _ -> failwith ""
+
 let fetch_decode_execute () =
   let pc = pc () in
   let word = fetch () in
   let insn = Decoder.decode word in
-  Sdl.(log_debug Log.category_application "%X: %s" pc (show_insn insn));
+  Sdl.(
+    log_debug Log.category_application "%08x %08x: %s" pc word (show_insn insn));
   execute insn;
   (* Sdl.(log_debug Log.category_application "State: %s" (show_state state.state)) *)
   ()

@@ -43,7 +43,8 @@ let update () =
        if R3000.state.state <> Running then raise_notrace Break;
        R3000.fetch_decode_execute ();
        state.cyc <- state.cyc + state.cpi;
-       Sdl.(log_debug Log.category_application "Cycles: %d\n" state.cyc)
+       (* Sdl.(log_debug Log.category_application "Cycles: %d\n" state.cyc) *)
+       ()
      done
    with Break -> ());
   if state.cyc = R3000.clockrate / 60 then state.cyc <- 0 (* TODO *)
