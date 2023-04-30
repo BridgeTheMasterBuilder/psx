@@ -71,14 +71,24 @@ let invalid_cop0_insn op _ _ =
   failwithf "Unimplemented COP-0 instruction: %s"
     (show_mnemonic cop0_opcode_map.(op))
 
+let my_assert lhs rhs =
+  if not (lhs = rhs) then (
+    Printf.eprintf "Assertion failed: %X <> %X\n" lhs rhs;
+    assert false)
+
+let my_assert_either lhs rhs1 rhs2 =
+  if not (lhs = rhs1 || lhs = rhs2) then (
+    Printf.eprintf "Assertion failed: %X <> %X && %X <> %X\n" lhs rhs1 lhs rhs2;
+    assert false)
+
 let bcc cond off =
   let off = i64_of_i16 off lsl 2 in
   if cond then set_pc (state.cur_pc + off)
 
 let beq rs rt off = bcc (state.regs.(rs) = state.regs.(rt)) off
 let bne rs rt off = bcc (state.regs.(rs) <> state.regs.(rt)) off
-let blez rs _ off = bcc (state.regs.(rs) <= 0) off
-let bgtz rs _ off = bcc (state.regs.(rs) > 0) off
+let blez rs _ off = bcc (bit state.regs.(rs) 31 = 1 || state.regs.(rs) = 0) off
+let bgtz rs _ off = bcc (bit state.regs.(rs) 31 = 0 && state.regs.(rs) <> 0) off
 
 let with_overflow_check f =
   let result = f () in
@@ -86,7 +96,8 @@ let with_overflow_check f =
 
 let addi rs rt imm =
   let result =
-    with_overflow_check (fun _ -> state.regs.(rs) + i64_of_i16 imm)
+    with_overflow_check (fun _ ->
+        (state.regs.(rs) + i64_of_i16 imm) land 0xFFFFFFFF)
   in
   state.regs.(rt) <- result
 
@@ -96,7 +107,8 @@ let addiu rs rt imm =
 
 let andi rs rt imm =
   let result = state.regs.(rs) land imm in
-  state.regs.(rt) <- result
+  state.regs.(rt) <- result;
+  assert (result < int_of_float (2.0 ** 32.0))
 
 let ori rs rt imm =
   let result = state.regs.(rs) lor imm in
@@ -111,19 +123,16 @@ let load base off =
   Bus.read_u32 addr
 
 let lb base rt off = state.regs.(rt) <- load base off land 0xFF |> i32_of_i8
-let lh base rt off = state.regs.(rt) <- load base off land 0xFFFF
-let lw base rt off = state.regs.(rt) <- load base off
+
+let lh base rt off =
+  my_assert ((state.regs.(base) + i64_of_i16 off) land 0x1) 0;
+  state.regs.(rt) <- load base off land 0xFFFF |> i32_of_i16
+
+let lw base rt off =
+  my_assert ((state.regs.(base) + i64_of_i16 off) land 0x3) 0;
+  state.regs.(rt) <- load base off
+
 let lbu base rt off = state.regs.(rt) <- load base off land 0xFF
-
-let my_assert lhs rhs =
-  if not (lhs = rhs) then (
-    Printf.eprintf "Assertion failed: %d <> %d\n" lhs rhs;
-    assert false)
-
-let my_assert_either lhs rhs1 rhs2 =
-  if not (lhs = rhs1 || lhs = rhs2) then (
-    Printf.eprintf "Assertion failed: %d <> %d && %d <> %d\n" lhs rhs1 lhs rhs2;
-    assert false)
 
 let store value base off =
   let addr = state.regs.(base) + i64_of_i16 off in
@@ -136,9 +145,13 @@ let sb base rt off =
 
 let sh base rt off =
   let value = state.regs.(rt) land 0xFFFF in
+  my_assert ((state.regs.(base) + i64_of_i16 off) land 0x1) 0;
   store value base off
 
-let sw base rt off = store state.regs.(rt) base off
+let sw base rt off =
+  my_assert ((state.regs.(base) + i64_of_i16 off) land 0x3) 0;
+  store state.regs.(rt) base off
+
 let watchpoint_acknowledged = ref false
 
 let execute_watched read write insn rs rt immediate =
@@ -214,12 +227,14 @@ let calculate_effective_address target =
 
 let j target =
   let target = calculate_effective_address target in
+  set_state Breakpoint;
   set_pc target
 
 let jal target =
   let ra = 31 in
   state.regs.(ra) <- state.next_pc;
   let target = calculate_effective_address target in
+  set_state Breakpoint;
   set_pc target
 
 let jtype_insn_map : (int -> unit) array =
@@ -232,16 +247,21 @@ let sll _ rt rd shamt =
 (* TODO address error exception *)
 let jr rs _ _ _ =
   let target = state.regs.(rs) in
-  set_pc target
+  set_pc target;
+  set_state Breakpoint;
+  my_assert (target land 0x3) 0
 
 let jalr rs _ rd _ =
   let target = state.regs.(rs) in
   state.regs.(rd) <- state.next_pc;
-  set_pc target
+  set_pc target;
+  set_state Breakpoint;
+  my_assert (target land 0x3) 0
 
 let add rs rt rd _ =
   let result =
-    with_overflow_check (fun _ -> state.regs.(rs) + state.regs.(rt))
+    with_overflow_check (fun _ ->
+        (state.regs.(rs) + state.regs.(rt)) land 0xFFFFFFFF)
   in
   state.regs.(rd) <- result
 

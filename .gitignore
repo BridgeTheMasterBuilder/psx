@@ -1,3 +1,5 @@
 _build
 .vscode
 SCPH1001.BIN
+log
+psxtest_cpu.exe

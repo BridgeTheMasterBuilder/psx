@@ -80,7 +80,7 @@ let connect () =
         "-ex";
         "layout regs";
         (* "-ex";
-           "b *0xBFC01A58";
+           "b *0x27e8";
            "-ex";
            "c"; *)
       |]
