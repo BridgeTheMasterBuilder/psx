@@ -79,10 +79,14 @@ let connect () =
         "layout asm";
         "-ex";
         "layout regs";
+        "-ex";
+        "b *0x3cac";
+        "-ex";
+        "b *0xbfc00448";
         (* "-ex";
-           "b *0x27e8";
-           "-ex";
-           "c"; *)
+           "watch *0x65e0"; *)
+        "-ex";
+        "c";
       |]
     |> ignore
   else wait_for_connection ();
