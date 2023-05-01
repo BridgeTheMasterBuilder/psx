@@ -353,18 +353,35 @@ let show_insn = function
         (state.regs.(rs) + i64_of_i16 immediate)
         (load rs immediate Bus.read_u32)
   | Itype { op; rs; rt; immediate } when rs = 0 || rs = rt ->
-      Printf.sprintf "%-6s $%s(%08x), 0x%04x" itype_opcode_map.(op)
-        register_map.(rt) state.regs.(rs) immediate
+      Printf.sprintf "%-6s $%s(%08x), 0x%04x"
+        (match op with 9 -> "move" | _ -> itype_opcode_map.(op))
+        register_map.(rt) state.regs.(rt) immediate
+  | Itype { op; rs; rt; immediate } ->
+      Printf.sprintf "%-6s $%s(%08x), $%s(%08x), 0x%04x" itype_opcode_map.(op)
+        register_map.(rs) state.regs.(rs) register_map.(rt) state.regs.(rt)
+        (state.cur_pc + (i64_of_i16 immediate lsl 2))
   (* | Itype { op; rs; rt; immediate } ->
       "" *)
   (* Printf.sprintf "%-6s $%s(%08x), 0x%04X" itype_opcode_map.(op)
      register_map.(rt) 0 immediate *)
-  | Jtype { op = 2; target } ->
-      Printf.sprintf "%-6s 0x%08x" "j" (calculate_effective_address target)
+  | Jtype { op; target } ->
+      Printf.sprintf "%-6s 0x%08x" jtype_opcode_map.(op)
+        (calculate_effective_address target)
   | Rtype { op = 0; rs = 0; rt = 0; rd = 0; shamt = 0 } -> "nop"
-  (* | Rtype { op = 37; rs; rt = 0; rd; _ } -> "move" *)
-  (* | Rtype { op; rs; rt; rd; shamt } -> rtype_opcode_map.(op) *)
-  (* | Cop0 { op; rt; rd } -> cop0_opcode_map.(op) *)
+  | Rtype { op; rs; rt = 0; rd; _ } ->
+      Printf.sprintf "%-6s $%s(%08x), $%s(%08x)"
+        (match op with 37 -> "move" | _ -> rtype_opcode_map.(op))
+        register_map.(rd) state.regs.(rd) register_map.(rs) state.regs.(rs)
+  | Rtype { op; rs; rt; rd; _ } ->
+      Printf.sprintf "%-6s $%s(%08x), $%s(%08x), $%s(%08x)"
+        rtype_opcode_map.(op) register_map.(rd) state.regs.(rd)
+        register_map.(rs) state.regs.(rs) register_map.(rt) state.regs.(rt)
+  | Cop0 { op = 0; rt; rd } ->
+      Printf.sprintf "%-6s $%s(%08x), $%s(%08x)" "mfc0" register_map.(rt)
+        state.regs.(rt) cop0_map.(rd) state.cop0_regs.(rd)
+  | Cop0 { op = 4; rt; rd } ->
+      Printf.sprintf "%-6s $%s(%08x), $%s(%08x)" "mtc0" cop0_map.(rd)
+        state.cop0_regs.(rd) register_map.(rt) state.regs.(rt)
   | _ -> failwith ""
 
 let fetch_decode_execute () =
@@ -374,5 +391,6 @@ let fetch_decode_execute () =
   Sdl.(
     log_debug Log.category_application "%08x %08x: %s" pc word (show_insn insn));
   execute insn;
+  assert (state.regs.(0) = 0);
   (* Sdl.(log_debug Log.category_application "State: %s" (show_state state.state)) *)
   ()

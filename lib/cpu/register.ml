@@ -1,6 +1,6 @@
 let register_map =
   [|
-    "zero";
+    "r0";
     "at";
     "v0";
     "v1";
@@ -40,14 +40,32 @@ let cop0_map =
     "invalid";
     "invalid";
     "bpc";
+    "invalid";
     "bda";
     "jumpdest";
     "dcic";
     "badvaddr";
     "bdam";
+    "invalid";
     "bpcm";
-    "sr";
+    "Status";
     "cause";
     "epc";
     "prid";
+    "invalid";
+    "invalid";
+    "invalid";
+    "invalid";
+    "invalid";
+    "invalid";
+    "invalid";
+    "invalid";
+    "invalid";
+    "invalid";
+    "invalid";
+    "invalid";
+    "invalid";
+    "invalid";
+    "invalid";
+    "invalid";
   |]
