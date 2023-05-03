@@ -393,8 +393,7 @@ let fetch_decode_execute () =
   let pc = pc () in
   let word = fetch () in
   let insn = Decoder.decode word in
-  Sdl.(
-    log_debug Log.category_application "%08x %08x: %s" pc word (show_insn insn));
+  Printf.printf "%08x %08x: %s\n" pc word (show_insn insn);
   execute insn;
   assert (state.regs.(0) = 0);
   (* Sdl.(log_debug Log.category_application "State: %s" (show_state state.state)) *)

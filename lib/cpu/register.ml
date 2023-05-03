@@ -42,7 +42,7 @@ let cop0_map =
     "BPC";
     "invalid";
     "BDA";
-    "jumpdest";
+    "PIDMask";
     "DCIC";
     "badvaddr";
     "BDAM";
@@ -51,7 +51,7 @@ let cop0_map =
     "Status";
     "Cause";
     "epc";
-    "PIDMask";
+    "PRID";
     "invalid";
     "invalid";
     "invalid";
