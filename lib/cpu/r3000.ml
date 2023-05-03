@@ -347,6 +347,11 @@ let check_for_breakpoint pc =
     set_state Breakpoint)
 
 let show_insn = function
+  | Itype { op = 35; rs; rt; immediate } ->
+      Printf.sprintf "%-6s $%s(%08x), 0x%04x(%s)([%08x] = %08x)" "lw"
+        register_map.(rt) state.regs.(rt) immediate register_map.(rs)
+        (state.regs.(rs) + i64_of_i16 immediate)
+        (load rs immediate Bus.read_u32)
   | Itype { op = 43; rs; rt; immediate } ->
       Printf.sprintf "%-6s $%s(%08x), 0x%04x(%s)([%08x] = %08x)" "sw"
         register_map.(rt) state.regs.(rt) immediate register_map.(rs)
