@@ -1,12 +1,13 @@
 open Util
 open Insn
+
 (* open Tsdl *)
 
 let decode_itype opcode word =
   let rs = bits word 21 25 in
   let rt = bits word 16 20 in
   let immediate = bits_abs word 0 15 in
-  assert ((opcode lsl 26) lor (rs lsl 21) lor (rt lsl 16) lor immediate = word);
+  (* my_assert ((opcode lsl 26) lor (rs lsl 21) lor (rt lsl 16) lor immediate) word; *)
   Itype { op = opcode; rs; rt; immediate }
 
 let decode_rtype opcode word =

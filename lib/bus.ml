@@ -137,3 +137,5 @@ let read_u32 addr = read addr Mem.read_u32
 let read_u16 addr = read addr Mem.read_u16
 let read_u8 addr = read addr Mem.read_u8
 let write_u32 addr data = write addr data Mem.write_u32
+let write_u16 addr data = write addr data Mem.write_u16
+let write_u8 addr data = write addr data Mem.write_u8
