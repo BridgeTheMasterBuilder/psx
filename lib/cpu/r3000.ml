@@ -74,6 +74,7 @@ let bcc cond off =
   let off = i64_of_i16 off lsl 2 in
   if cond then set_pc (state.cur_pc + off)
 
+let bltz rs _ off = bcc (bit state.regs.(rs) 31 = 1) off
 let beq rs rt off = bcc (state.regs.(rs) = state.regs.(rt)) off
 let bne rs rt off = bcc (state.regs.(rs) <> state.regs.(rt)) off
 let blez rs _ off = bcc (bit state.regs.(rs) 31 = 1 || state.regs.(rs) = 0) off
@@ -92,6 +93,17 @@ let addi rs rt imm =
 
 let addiu rs rt imm =
   let result = (state.regs.(rs) + i64_of_i16 imm) land 0xFFFFFFFF in
+  state.regs.(rt) <- result
+
+let subi rs rt imm =
+  let result =
+    with_overflow_check (fun _ ->
+        (state.regs.(rs) - i64_of_i16 imm) land 0xFFFFFFFF)
+  in
+  state.regs.(rt) <- result
+
+let subiu rs rt imm =
+  let result = (state.regs.(rs) - i64_of_i16 imm) land 0xFFFFFFFF in
   state.regs.(rt) <- result
 
 let andi rs rt imm =
@@ -172,7 +184,7 @@ let with_watched_reads insn = execute_watched true false insn
 
 let itype_insn_map : (int -> int -> int -> unit) array =
   [|
-    invalid_itype_insn 0;
+    bltz;
     invalid_itype_insn 1;
     invalid_itype_insn 2;
     invalid_itype_insn 3;
@@ -182,8 +194,8 @@ let itype_insn_map : (int -> int -> int -> unit) array =
     bgtz;
     addi;
     addiu;
-    invalid_itype_insn 10;
-    invalid_itype_insn 11;
+    subi;
+    subiu;
     andi;
     ori;
     invalid_itype_insn 14;
@@ -240,6 +252,11 @@ let sll _ rt rd shamt =
   let result = state.regs.(rt) lsl shamt in
   state.regs.(rd) <- result
 
+let sllv rs rt rd _ =
+  let shamt = state.regs.(rs) land 0x1F in
+  let result = state.regs.(rt) lsl shamt in
+  state.regs.(rd) <- result
+
 (* TODO address error exception *)
 let jr rs _ _ _ =
   let target = state.regs.(rs) in
@@ -263,6 +280,17 @@ let addu rs rt rd _ =
   let result = (state.regs.(rs) + state.regs.(rt)) land 0xFFFFFFFF in
   state.regs.(rd) <- result
 
+let sub rs rt rd _ =
+  let result =
+    with_overflow_check (fun _ ->
+        (state.regs.(rs) - state.regs.(rt)) land 0xFFFFFFFF)
+  in
+  state.regs.(rd) <- result
+
+let subu rs rt rd _ =
+  let result = (state.regs.(rs) - state.regs.(rt)) land 0xFFFFFFFF in
+  state.regs.(rd) <- result
+
 let and_insn rs rt rd _ =
   let result = state.regs.(rs) land state.regs.(rt) in
   state.regs.(rd) <- result
@@ -280,7 +308,7 @@ let rtype_insn_map : (int -> int -> int -> int -> unit) array =
     invalid_rtype_insn 1;
     invalid_rtype_insn 2;
     invalid_rtype_insn 3;
-    invalid_rtype_insn 4;
+    sllv;
     invalid_rtype_insn 5;
     invalid_rtype_insn 6;
     invalid_rtype_insn 7;
@@ -310,8 +338,8 @@ let rtype_insn_map : (int -> int -> int -> int -> unit) array =
     invalid_rtype_insn 31;
     add;
     addu;
-    invalid_rtype_insn 34;
-    invalid_rtype_insn 35;
+    sub;
+    subu;
     and_insn;
     or_insn;
     invalid_rtype_insn 38;

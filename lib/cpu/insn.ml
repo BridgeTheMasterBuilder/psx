@@ -55,9 +55,9 @@ let rtype_opcode_map =
   [|
     "sll";
     "invalid";
+    "invalid";
     "sra";
     "sllv";
-    "invalid";
     "srlv";
     "invalid";
     "srav";
