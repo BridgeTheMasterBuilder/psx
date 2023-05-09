@@ -1,0 +1,8 @@
+(include_subdirs no)
+
+(library
+ (name suffix)
+ (kind ppx_rewriter)
+ (libraries ppxlib)
+ (preprocess
+  (pps ppxlib.metaquot)))

@@ -53,30 +53,33 @@ let page_table_w = ref page_table_w_normal
 let fffe0130 = ref 0
 
 let read_slow addr reader =
-  let unmirrored = addr land 0x1FFFFFFF in
-  if unmirrored >= 0x1F000000 && unmirrored < 0x1F800000 then
+  let open Uint32 in
+  let unmirrored = addr land 0x1FFFFFFFu in
+  if unmirrored >= 0x1F000000u && unmirrored < 0x1F800000u then
     (* Sdl.(
        log_debug Log.category_application
          "READ from Expansion Region 1 at %X (unimplemented)" addr); *)
     0
-  else if unmirrored >= 0x1F800000 && unmirrored < 0x1F800400 then
-    let offset = addr land 0xFFF in
+  else if unmirrored >= 0x1F800000u && unmirrored < 0x1F800400u then
+    let offset = addr land 0xFFFu in
     (* Sdl.(
        log_debug Log.category_application "READ scratchpad at address #%d" addr); *)
     reader Scratchpad.data offset
-  else if unmirrored >= 0x1F801000 && unmirrored < 0x1F802000 then
+  else if unmirrored >= 0x1F801000u && unmirrored < 0x1F802000u then
     (* Sdl.(
        log_debug Log.category_application
          "READ from I/O port at %X (unimplemented)" addr); *)
     (* -1 *)
     0
-  else if unmirrored = 0x1F802041 then
+  else if unmirrored = 0x1F802041u then
     (* Sdl.(
        log_debug Log.category_application "READ from POST at %X (unimplemented)"
          addr); *)
     -1
-  else if addr = 0xFFFE0130 then !fffe0130
-  else failwithf "Unknown address %X (%X)" addr unmirrored
+  else if addr = 0xFFFE0130u then !fffe0130
+  else
+    failwithf "Unknown address %X (%X)" (Uint32.to_int addr)
+      (Uint32.to_int unmirrored)
 
 let write_slow addr data writer =
   let unmirrored = addr land 0x1FFFFFFF in
@@ -104,8 +107,9 @@ let write_slow addr data writer =
   else failwithf "Unknown address %X (%X)" addr unmirrored
 
 let read addr reader =
-  let page = addr lsr 16 in
-  let offset = addr land 0xFFFF in
+  let page = Uint32.to_int addr lsr 16 in
+  let open Uint32 in
+  let offset = addr land 0xFFFFu in
   let pointer = page_table_r.(page) in
   match pointer with
   | None ->

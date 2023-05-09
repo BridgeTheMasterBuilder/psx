@@ -20,5 +20,5 @@
   scratchpad
   misc)
  (preprocess
-  (pps ppx_deriving.show))
- (libraries containers util tsdl))
+  (pps ppx_deriving.show suffix))
+ (libraries containers util tsdl uint32))

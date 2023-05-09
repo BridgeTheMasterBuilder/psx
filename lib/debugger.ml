@@ -117,11 +117,7 @@ let connect () =
                              try Bus.read_u8 (addr + i) with Failure _ -> 0)
                        in
                        respond client (string_of_memory memory))
-               | Packet (WriteMemory { addr; length; data }) ->
-                   (* let memory = List.init length (fun i -> Bus.read_u8 (addr + i)) in
-                      respond client (string_of_memory memory) *)
-                   respond client "E00"
-                   (* TODO *)
+               | Packet (WriteMemory _) -> respond client "E00" (* TODO *)
                | Packet (QSupported _features) ->
                    respond client
                      "multiprocess+;vContSupported+;qXfer:features:read+;QStartNoAckMode+"

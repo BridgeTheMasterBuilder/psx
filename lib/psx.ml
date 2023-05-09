@@ -51,13 +51,13 @@ let update () =
 
 let run renderer framebuffer =
   if not state.running then terminate ();
-  (* let frame_start = Unix.gettimeofday () in *)
+  let frame_start = Unix.gettimeofday () in
   handle_input ();
   update ();
   render renderer framebuffer;
   (* Psx.(match run () with _ -> ()); *)
-  (* let frame_end = Unix.gettimeofday () in *)
-  ()
-(* Sdl.(
-   log_critical Log.category_application "%f fps\n"
-     (1.0 /. (frame_end -. frame_start))) *)
+  let frame_end = Unix.gettimeofday () in
+  (* () *)
+  Sdl.(
+    log_critical Log.category_application "%f fps\n"
+      (1.0 /. (frame_end -. frame_start)))

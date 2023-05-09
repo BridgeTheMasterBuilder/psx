@@ -4,13 +4,14 @@ open Insn
 open Register
 open Util
 open Misc
+open Uint32
 
 type state = Running | Halted | Breakpoint | Watchpoint [@@deriving show]
 
 type t = {
   regs : int array;
-  mutable cur_pc : int;
-  mutable next_pc : int;
+  mutable cur_pc : Uint32.t;
+  mutable next_pc : Uint32.t;
   cop0_regs : int array;
   mutable breakpoints : int list;
   mutable write_watchpoints : int list;
@@ -25,8 +26,8 @@ let clockrate = 33_868_800
 let state =
   {
     regs = Array.make 32 0;
-    cur_pc = 0xBFC00000;
-    next_pc = 0xBFC00004;
+    cur_pc = Uint32.of_int 0xBFC00000;
+    next_pc = Uint32.of_int 0xBFC00004;
     cop0_regs = Array.make 32 0;
     breakpoints = [];
     write_watchpoints = [];
@@ -37,12 +38,13 @@ let state =
   }
 
 let dump_registers () =
-  Array.to_list state.regs @ [ 0; 0; 0; 0; 0; state.cur_pc; 0; 0; 0 ]
+  Array.to_list state.regs
+  @ [ 0; 0; 0; 0; 0; Uint32.to_int state.cur_pc; 0; 0; 0 ]
 
 let pc () = state.cur_pc
 
 (* TODO maybe adjust CPI *)
-let set_pc addr = state.next_pc <- addr land 0xFFFFFFFF
+let set_pc addr = state.next_pc <- addr land 0xFFFFFFFFu
 
 let set_state s =
   state.state <- s;
@@ -50,7 +52,7 @@ let set_state s =
 
 let incr_pc () =
   state.cur_pc <- state.next_pc;
-  set_pc (state.next_pc + 4)
+  set_pc (state.next_pc + 4u)
 
 let fetch () =
   let word = Bus.read_u32 state.cur_pc in
@@ -71,7 +73,7 @@ let invalid_cop0_insn op _ _ =
   failwithf "Unimplemented COP-0 instruction: %s" cop0_opcode_map.(op)
 
 let bcc cond off =
-  let off = i64_of_i16 off lsl 2 in
+  let off = i63_of_i16 off lsl 2 in
   if cond then set_pc (state.cur_pc + off)
 
 let bltz rs _ off = bcc (bit state.regs.(rs) 31 = 1) off
@@ -87,23 +89,23 @@ let with_overflow_check f =
 let addi rs rt imm =
   let result =
     with_overflow_check (fun _ ->
-        (state.regs.(rs) + i64_of_i16 imm) land 0xFFFFFFFF)
+        (state.regs.(rs) + i63_of_i16 imm) land 0xFFFFFFFF)
   in
   state.regs.(rt) <- result
 
 let addiu rs rt imm =
-  let result = (state.regs.(rs) + i64_of_i16 imm) land 0xFFFFFFFF in
+  let result = (state.regs.(rs) + i63_of_i16 imm) land 0xFFFFFFFF in
   state.regs.(rt) <- result
 
 let subi rs rt imm =
   let result =
     with_overflow_check (fun _ ->
-        (state.regs.(rs) - i64_of_i16 imm) land 0xFFFFFFFF)
+        (state.regs.(rs) - i63_of_i16 imm) land 0xFFFFFFFF)
   in
   state.regs.(rt) <- result
 
 let subiu rs rt imm =
-  let result = (state.regs.(rs) - i64_of_i16 imm) land 0xFFFFFFFF in
+  let result = (state.regs.(rs) - i63_of_i16 imm) land 0xFFFFFFFF in
   state.regs.(rt) <- result
 
 let andi rs rt imm =
@@ -120,7 +122,7 @@ let lui _ rt imm =
   state.regs.(rt) <- result
 
 let load base off reader =
-  let addr = state.regs.(base) + i64_of_i16 off in
+  let addr = state.regs.(base) + i63_of_i16 off in
   reader addr
 
 let delay reg value =
@@ -137,7 +139,7 @@ let lh base rt off =
   delay rt result
 
 let lw base rt off =
-  my_assert ((state.regs.(base) + i64_of_i16 off) land 0x3) 0;
+  my_assert ((state.regs.(base) + i63_of_i16 off) land 0x3) 0;
   let result = load base off Bus.read_u32 in
   delay rt result
 
@@ -146,7 +148,7 @@ let lbu base rt off =
   delay rt result
 
 let store value base off writer =
-  let addr = state.regs.(base) + i64_of_i16 off in
+  let addr = state.regs.(base) + i63_of_i16 off in
   writer addr value
 (* quiet (fun _ -> my_assert_either (Bus.read_u32 addr) value (-1)) *)
 
@@ -159,13 +161,13 @@ let sh base rt off =
   store value base off Bus.write_u16
 
 let sw base rt off =
-  my_assert ((state.regs.(base) + i64_of_i16 off) land 0x3) 0;
+  my_assert ((state.regs.(base) + i63_of_i16 off) land 0x3) 0;
   store state.regs.(rt) base off Bus.write_u32
 
 let watchpoint_acknowledged = ref false
 
 let execute_watched read write insn rs rt immediate =
-  let addr = state.regs.(rs) + i64_of_i16 immediate in
+  let addr = state.regs.(rs) + i63_of_i16 immediate in
   if
     ((write && List.mem addr state.write_watchpoints)
     || (read && List.mem addr state.read_watchpoints))
@@ -252,6 +254,11 @@ let sll _ rt rd shamt =
   let result = state.regs.(rt) lsl shamt in
   state.regs.(rd) <- result
 
+(* TODO *)
+let sra _ rt rd shamt =
+  let result = (i63_of_i32 state.regs.(rt) asr shamt) land 0xFFFFFFFF in
+  state.regs.(rd) <- result
+
 let sllv rs rt rd _ =
   let shamt = state.regs.(rs) land 0x1F in
   let result = state.regs.(rt) lsl shamt in
@@ -307,7 +314,7 @@ let rtype_insn_map : (int -> int -> int -> int -> unit) array =
     sll;
     invalid_rtype_insn 1;
     invalid_rtype_insn 2;
-    invalid_rtype_insn 3;
+    sra;
     sllv;
     invalid_rtype_insn 5;
     invalid_rtype_insn 6;
@@ -405,17 +412,17 @@ let show_insn = function
       | 32 | 36 | 40 ->
           Printf.sprintf "%-6s $%s(%08x), 0x%04x(%s)([%08x] = %02x)" mnemonic
             register_map.(rt) state.regs.(rt) immediate register_map.(rs)
-            (state.regs.(rs) + i64_of_i16 immediate)
+            (state.regs.(rs) + i63_of_i16 immediate)
             (load rs immediate reader)
       | 33 | 41 ->
           Printf.sprintf "%-6s $%s(%08x), 0x%04x(%s)([%08x] = %04x)" mnemonic
             register_map.(rt) state.regs.(rt) immediate register_map.(rs)
-            (state.regs.(rs) + i64_of_i16 immediate)
+            (state.regs.(rs) + i63_of_i16 immediate)
             (load rs immediate reader)
       | 35 | 43 ->
           Printf.sprintf "%-6s $%s(%08x), 0x%04x(%s)([%08x] = %08x)" mnemonic
             register_map.(rt) state.regs.(rt) immediate register_map.(rs)
-            (state.regs.(rs) + i64_of_i16 immediate)
+            (state.regs.(rs) + i63_of_i16 immediate)
             (load rs immediate reader)
       | _ -> failwith "unreachable")
   | Itype { op; rs; rt; immediate } when rs = 0 || rs = rt ->
@@ -427,7 +434,7 @@ let show_insn = function
   | Itype { op; rs; rt; immediate } ->
       Printf.sprintf "%-6s $%s(%08x), $%s(%08x), 0x%04x" itype_opcode_map.(op)
         register_map.(rs) state.regs.(rs) register_map.(rt) state.regs.(rt)
-        (state.cur_pc + (i64_of_i16 immediate lsl 2))
+        (state.cur_pc + (i63_of_i16 immediate lsl 2))
   (* | Itype { op; rs; rt; immediate } ->
       "" *)
   (* Printf.sprintf "%-6s $%s(%08x), 0x%04X" itype_opcode_map.(op)
@@ -438,7 +445,7 @@ let show_insn = function
   | Rtype { op = 0; rs = 0; rt = 0; rd = 0; shamt = 0 } -> "nop"
   | Rtype { op = 8; rs; rt = 0; rd = 0; shamt = 0 } ->
       Printf.sprintf "%-6s $%s(%08x)" "jr" register_map.(rs) state.regs.(rs)
-  | Rtype { op = 9; rs; rt = 0; rd; shamt = 0 } ->
+  | Rtype { op = 9; rs; rt = 0; shamt = 0; _ } ->
       Printf.sprintf "%-6s $%s(%08x)" "jalr" register_map.(rs) state.regs.(rs)
   | Rtype { op; rs; rt = 0; rd; _ } ->
       Printf.sprintf "%-6s $%s(%08x), $%s(%08x)"
@@ -460,11 +467,11 @@ let show_insn = function
   | _ -> failwith ""
 
 let fetch_decode_execute () =
-  let pc = pc () in
+  (* let pc = pc () in *)
   let word = fetch () in
   let insn = Decoder.decode word in
-  Printf.printf "%08x %08x: %s\n" pc word (show_insn insn);
-  flush stdout;
+  (* Printf.printf "%08x %08x: %s\n" pc word (show_insn insn);
+     flush stdout; *)
   (match state.load_queue with
   | (reg, value) :: rest ->
       state.regs.(reg) <- value;
