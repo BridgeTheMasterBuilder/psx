@@ -1,5 +1,7 @@
-type t = int
+(* type t = int *)
+type t
 
+val int_as_uint32 : int -> t
 val of_int : int -> t
 val to_int : t -> int
 val ( land ) : t -> t -> t

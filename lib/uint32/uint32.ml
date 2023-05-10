@@ -1,5 +1,6 @@
 type t = int
 
+let int_as_uint32 x = x
 let of_int x = x land 0xFFFFFFFF
 let to_int x = x
 let ( land ) x y = x land y

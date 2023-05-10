@@ -3,8 +3,9 @@ open Misc
 
 (* TODO unaligned *)
 let read_u32 mem addr =
-  let addr = Uint32.to_int addr lsr 2 in
-  mem.{addr} |> Uint32.of_int
+  let open Uint32 in
+  let addr = addr lsr 2u |> Uint32.to_int in
+  mem.{addr} |> Uint32.int_as_uint32
 
 (* TODO mask *)
 (* TODO Uint16 *)

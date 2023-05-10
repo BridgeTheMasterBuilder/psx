@@ -479,6 +479,6 @@ let fetch_decode_execute () =
   | [] -> ());
   (* TODO *)
   execute insn;
-  assert (state.regs.(0) = 0);
+  assert (state.regs.(0) = 0u);
   (* Sdl.(log_debug Log.category_application "State: %s" (show_state state.state)); *)
   ()
