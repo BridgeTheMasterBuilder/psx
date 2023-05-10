@@ -1,5 +1,5 @@
-open Util
 open Insn
+open Uint32
 
 (* open Tsdl *)
 

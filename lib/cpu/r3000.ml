@@ -9,26 +9,26 @@ open Uint32
 type state = Running | Halted | Breakpoint | Watchpoint [@@deriving show]
 
 type t = {
-  regs : int array;
+  regs : Uint32.t array;
   mutable cur_pc : Uint32.t;
   mutable next_pc : Uint32.t;
-  cop0_regs : int array;
+  cop0_regs : Uint32.t array;
   mutable breakpoints : int list;
   mutable write_watchpoints : int list;
   mutable read_watchpoints : int list;
   mutable state : state;
   mutable old_state : state;
-  mutable load_queue : (int * int) list;
+  mutable load_queue : (int * Uint32.t) list;
 }
 
 let clockrate = 33_868_800
 
 let state =
   {
-    regs = Array.make 32 0;
-    cur_pc = Uint32.of_int 0xBFC00000;
-    next_pc = Uint32.of_int 0xBFC00004;
-    cop0_regs = Array.make 32 0;
+    regs = Array.make 32 0u;
+    cur_pc = 0xBFC00000u;
+    next_pc = 0xBFC00004u;
+    cop0_regs = Array.make 32 0u;
     breakpoints = [];
     write_watchpoints = [];
     read_watchpoints = [];
@@ -38,13 +38,13 @@ let state =
   }
 
 let dump_registers () =
-  Array.to_list state.regs
+  Array.to_list (Array.map Uint32.to_int state.regs)
   @ [ 0; 0; 0; 0; 0; Uint32.to_int state.cur_pc; 0; 0; 0 ]
 
 let pc () = state.cur_pc
 
 (* TODO maybe adjust CPI *)
-let set_pc addr = state.next_pc <- addr land 0xFFFFFFFFu
+let set_pc addr = state.next_pc <- addr
 
 let set_state s =
   state.state <- s;

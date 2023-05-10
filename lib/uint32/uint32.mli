@@ -1,8 +1,11 @@
-type t
+type t = int
 
 val of_int : int -> t
 val to_int : t -> int
 val ( land ) : t -> t -> t
+val ( lor ) : t -> t -> t
+val ( lxor ) : t -> t -> t
+val ( lsl ) : t -> t -> t
 val ( lsr ) : t -> t -> t
 val ( + ) : t -> t -> t
 val ( / ) : t -> t -> t

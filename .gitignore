@@ -3,3 +3,12 @@ _build
 SCPH1001.BIN
 log
 psxtest_cpu.exe
+util
+psx.opam
+.gitignore
+perf.data.old
+perf.data
+diffed
+gitdiffcmd
+dune-project
+trace

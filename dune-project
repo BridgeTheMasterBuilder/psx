@@ -22,7 +22,6 @@
  (depends
   ocaml
   dune
-  util
   (cmdliner
    (>= 1.1.1))
   (tsdl
@@ -30,7 +29,9 @@
   (containers
    (>= 3.11))
   (ppx_deriving
-   (>= 5.2.1)))
+   (>= 5.2.1))
+  (ppxlib
+   (>= 0.29.1)))
  (tags
   (topics "to describe" your project)))
 
