@@ -1,11 +1,12 @@
 (* open Util *)
 open Misc
+open Ints
 
 (* TODO unaligned *)
 let read_u32 mem addr =
   let open Uint32 in
   let addr = addr lsr 2u |> Uint32.to_int in
-  mem.{addr} |> Uint32.int_as_uint32
+  mem.{addr} |> Uint32.as_t
 
 (* TODO mask *)
 (* TODO Uint16 *)

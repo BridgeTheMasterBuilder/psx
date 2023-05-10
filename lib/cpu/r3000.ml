@@ -4,6 +4,7 @@ open Insn
 open Register
 open Util
 open Misc
+open Ints
 open Uint32
 
 type state = Running | Halted | Breakpoint | Watchpoint [@@deriving show]

@@ -21,4 +21,4 @@
   misc)
  (preprocess
   (pps ppx_deriving.show suffix))
- (libraries containers util tsdl uint32))
+ (libraries containers util tsdl ints))

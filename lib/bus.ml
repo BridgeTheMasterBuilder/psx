@@ -2,6 +2,7 @@ open Bigarray
 
 (* open Tsdl *)
 open Util
+open Ints
 
 let page_size = 64 * 1024 / 4
 

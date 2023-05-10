@@ -121,18 +121,7 @@ let cop0_opcode_map =
   |]
 
 type insn =
-  | Itype of {
-      op : Uint32.t;
-      rs : Uint32.t;
-      rt : Uint32.t;
-      immediate : Uint32.t;
-    }
-  | Jtype of { op : Uint32.t; target : Uint32.t }
-  | Rtype of {
-      op : Uint32.t;
-      rs : Uint32.t;
-      rt : Uint32.t;
-      rd : Uint32.t;
-      shamt : Uint32.t;
-    }
-  | Cop0 of { op : Uint32.t; rt : Uint32.t; rd : Uint32.t }
+  | Itype of { op : int; rs : int; rt : int; immediate : int }
+  | Jtype of { op : int; target : int }
+  | Rtype of { op : int; rs : int; rt : int; rd : int; shamt : int }
+  | Cop0 of { op : int; rt : int; rd : int }
