@@ -3,3 +3,9 @@ _build
 SCPH1001.BIN
 log
 psxtest_cpu.exe
+diffed
+gitdiffcmd
+perf.data
+perf.data.old
+trace
+util

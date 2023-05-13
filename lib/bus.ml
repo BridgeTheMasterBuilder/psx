@@ -104,6 +104,7 @@ let write_slow addr data writer =
   else failwithf "Unknown address %X (%X)" addr unmirrored
 
 let read addr reader =
+  let addr = addr land 0xFFFFFFFF in
   let page = addr lsr 16 in
   let offset = addr land 0xFFFF in
   let pointer = page_table_r.(page) in
@@ -121,6 +122,7 @@ let read addr reader =
       value
 
 let write addr data writer =
+  let addr = addr land 0xFFFFFFFF in
   let page = addr lsr 16 in
   let offset = addr land 0xFFFF in
   let pointer = !page_table_w.(page) in
@@ -137,5 +139,11 @@ let read_u32 addr = read addr Mem.read_u32
 let read_u16 addr = read addr Mem.read_u16
 let read_u8 addr = read addr Mem.read_u8
 let write_u32 addr data = write addr data Mem.write_u32
-let write_u16 addr data = write addr data Mem.write_u16
-let write_u8 addr data = write addr data Mem.write_u8
+
+let write_u16 addr data =
+  let data = data land 0xFFFF in
+  write addr data Mem.write_u16
+
+let write_u8 addr data =
+  let data = data land 0xFF in
+  write addr data Mem.write_u8
