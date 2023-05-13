@@ -3,6 +3,7 @@ open Insn
 
 (* open Tsdl *)
 
+(* TODO hardcode masks *)
 let decode_itype opcode word =
   let rs = bits word 21 25 in
   let rt = bits word 16 20 in
