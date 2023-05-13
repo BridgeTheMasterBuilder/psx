@@ -250,6 +250,10 @@ let sll _ rt rd shamt =
   let result = state.regs.(rt) lsl shamt in
   state.regs.(rd) <- result
 
+let sra _ rt rd shamt =
+  let result = ((state.regs.(rt) lsl 31) asr (31 + shamt)) land 0xFFFFFFFF in
+  state.regs.(rd) <- result
+
 let sllv rs rt rd _ =
   let shamt = state.regs.(rs) land 0x1F in
   let result = state.regs.(rt) lsl shamt in
@@ -303,7 +307,7 @@ let rtype_insn_map : (int -> int -> int -> int -> unit) array =
     sll;
     invalid_rtype_insn 1;
     invalid_rtype_insn 2;
-    invalid_rtype_insn 3;
+    sra;
     sllv;
     invalid_rtype_insn 5;
     invalid_rtype_insn 6;

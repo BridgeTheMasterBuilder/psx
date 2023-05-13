@@ -141,9 +141,9 @@ let read_u8 addr = read addr Mem.read_u8
 let write_u32 addr data = write addr data Mem.write_u32
 
 let write_u16 addr data =
-  let data = data land 0xFFFF in
+  (* let data = data land 0xFFFF in *)
   write addr data Mem.write_u16
 
 let write_u8 addr data =
-  let data = data land 0xFF in
+  (* let data = data land 0xFF in *)
   write addr data Mem.write_u8
