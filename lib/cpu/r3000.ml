@@ -36,11 +36,6 @@ let state =
     load_queue = [];
   }
 
-let ( + ) x y = (x + y) land 0xFFFFFFFF
-let ( - ) x y = (x - y) land 0xFFFFFFFF
-let ( * ) x y = x * y land 0xFFFFFFFF
-let ( / ) x y = x / y land 0xFFFFFFFF
-
 let dump_registers () =
   Array.to_list state.regs @ [ 0; 0; 0; 0; 0; state.cur_pc; 0; 0; 0 ]
 
@@ -55,7 +50,7 @@ let set_state s =
 
 let incr_pc () =
   state.cur_pc <- state.next_pc;
-  set_pc (state.next_pc + 4)
+  set_pc ((state.next_pc + 4) land 0xFFFFFFFF)
 
 let fetch () =
   let word = Bus.read_u32 state.cur_pc in
@@ -91,22 +86,24 @@ let with_overflow_check f =
 
 let addi rs rt imm =
   let result =
-    with_overflow_check (fun _ -> state.regs.(rs) + i32_of_i16 imm)
+    with_overflow_check (fun _ ->
+        (state.regs.(rs) + i32_of_i16 imm) land 0xFFFFFFFF)
   in
   state.regs.(rt) <- result
 
 let addiu rs rt imm =
-  let result = state.regs.(rs) + i32_of_i16 imm in
+  let result = (state.regs.(rs) + i32_of_i16 imm) land 0xFFFFFFFF in
   state.regs.(rt) <- result
 
 let subi rs rt imm =
   let result =
-    with_overflow_check (fun _ -> state.regs.(rs) - i32_of_i16 imm)
+    with_overflow_check (fun _ ->
+        (state.regs.(rs) - i32_of_i16 imm) land 0xFFFFFFFF)
   in
   state.regs.(rt) <- result
 
 let subiu rs rt imm =
-  let result = state.regs.(rs) - i32_of_i16 imm in
+  let result = (state.regs.(rs) - i32_of_i16 imm) land 0xFFFFFFFF in
   state.regs.(rt) <- result
 
 let andi rs rt imm =
@@ -123,7 +120,7 @@ let lui _ rt imm =
   state.regs.(rt) <- result
 
 let load base off reader =
-  let addr = state.regs.(base) + i32_of_i16 off in
+  let addr = (state.regs.(base) + i32_of_i16 off) land 0xFFFFFFFF in
   reader addr
 
 let delay reg value =
@@ -149,7 +146,7 @@ let lbu base rt off =
   delay rt result
 
 let store value base off writer =
-  let addr = state.regs.(base) + i32_of_i16 off in
+  let addr = (state.regs.(base) + i32_of_i16 off) land 0xFFFFFFFF in
   writer addr value
 (* quiet (fun _ -> my_assert_either (Bus.read_u32 addr) value (-1)) *)
 
@@ -273,22 +270,24 @@ let jalr rs _ rd _ =
 
 let add rs rt rd _ =
   let result =
-    with_overflow_check (fun _ -> state.regs.(rs) + state.regs.(rt))
+    with_overflow_check (fun _ ->
+        state.regs.(rs) + (state.regs.(rt) land 0xFFFFFFFF))
   in
   state.regs.(rd) <- result
 
 let addu rs rt rd _ =
-  let result = state.regs.(rs) + state.regs.(rt) in
+  let result = state.regs.(rs) + (state.regs.(rt) land 0xFFFFFFFF) in
   state.regs.(rd) <- result
 
 let sub rs rt rd _ =
   let result =
-    with_overflow_check (fun _ -> state.regs.(rs) - state.regs.(rt))
+    with_overflow_check (fun _ ->
+        state.regs.(rs) - (state.regs.(rt) land 0xFFFFFFFF))
   in
   state.regs.(rd) <- result
 
 let subu rs rt rd _ =
-  let result = state.regs.(rs) - state.regs.(rt) in
+  let result = state.regs.(rs) - (state.regs.(rt) land 0xFFFFFFFF) in
   state.regs.(rd) <- result
 
 let and_insn rs rt rd _ =
