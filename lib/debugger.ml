@@ -86,7 +86,7 @@ let connect () =
            "-ex";
            "c"; *)
         "-ex";
-        "b *0xbfc02b7c";
+        "b *0x2a48";
       |]
     |> ignore
   else wait_for_connection ();

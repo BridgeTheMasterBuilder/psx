@@ -9,6 +9,8 @@ type state = Running | Halted | Breakpoint | Watchpoint [@@deriving show]
 
 type t = {
   regs : int array;
+  mutable lo : int;
+  mutable hi : int;
   mutable cur_pc : int;
   mutable next_pc : int;
   cop0_regs : int array;
@@ -25,6 +27,8 @@ let clockrate = 33_868_800
 let state =
   {
     regs = Array.make 32 0;
+    lo = 0;
+    hi = 0;
     cur_pc = 0xBFC00000;
     next_pc = 0xBFC00004;
     cop0_regs = Array.make 32 0;
@@ -268,26 +272,34 @@ let jalr rs _ rd _ =
   set_pc target;
   my_assert (target land 0x3) 0
 
+let mflo _ _ rd _ = state.regs.(rd) <- state.lo
+
+let div rs rt _ _ =
+  let q = state.regs.(rs) / state.regs.(rt) in
+  let r = state.regs.(rs) mod state.regs.(rt) in
+  state.lo <- q;
+  state.hi <- r
+
 let add rs rt rd _ =
   let result =
     with_overflow_check (fun _ ->
-        state.regs.(rs) + (state.regs.(rt) land 0xFFFFFFFF))
+        (state.regs.(rs) + state.regs.(rt)) land 0xFFFFFFFF)
   in
   state.regs.(rd) <- result
 
 let addu rs rt rd _ =
-  let result = state.regs.(rs) + (state.regs.(rt) land 0xFFFFFFFF) in
+  let result = (state.regs.(rs) + state.regs.(rt)) land 0xFFFFFFFF in
   state.regs.(rd) <- result
 
 let sub rs rt rd _ =
   let result =
     with_overflow_check (fun _ ->
-        state.regs.(rs) - (state.regs.(rt) land 0xFFFFFFFF))
+        (state.regs.(rs) - state.regs.(rt)) land 0xFFFFFFFF)
   in
   state.regs.(rd) <- result
 
 let subu rs rt rd _ =
-  let result = state.regs.(rs) - (state.regs.(rt) land 0xFFFFFFFF) in
+  let result = (state.regs.(rs) - state.regs.(rt)) land 0xFFFFFFFF in
   state.regs.(rd) <- result
 
 let and_insn rs rt rd _ =
@@ -321,7 +333,7 @@ let rtype_insn_map : (int -> int -> int -> int -> unit) array =
     invalid_rtype_insn 15;
     invalid_rtype_insn 16;
     invalid_rtype_insn 17;
-    invalid_rtype_insn 18;
+    mflo;
     invalid_rtype_insn 19;
     invalid_rtype_insn 20;
     invalid_rtype_insn 21;
@@ -329,7 +341,7 @@ let rtype_insn_map : (int -> int -> int -> int -> unit) array =
     invalid_rtype_insn 23;
     invalid_rtype_insn 24;
     invalid_rtype_insn 25;
-    invalid_rtype_insn 26;
+    div;
     invalid_rtype_insn 27;
     invalid_rtype_insn 28;
     invalid_rtype_insn 29;
