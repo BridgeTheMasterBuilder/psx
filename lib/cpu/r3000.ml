@@ -79,6 +79,7 @@ let bcc cond off =
   if cond then set_pc (state.cur_pc + off)
 
 let bltz rs _ off = bcc (bit state.regs.(rs) 31 = 1) off
+let bgez rs _ off = bcc (bit state.regs.(rs) 31 = 0) off
 let beq rs rt off = bcc (state.regs.(rs) = state.regs.(rt)) off
 let bne rs rt off = bcc (state.regs.(rs) <> state.regs.(rt)) off
 let blez rs _ off = bcc (bit state.regs.(rs) 31 = 1 || state.regs.(rs) = 0) off
@@ -184,7 +185,7 @@ let with_watched_reads insn = execute_watched true false insn
 let itype_insn_map : (int -> int -> int -> unit) array =
   [|
     bltz;
-    invalid_itype_insn 1;
+    bgez;
     invalid_itype_insn 2;
     invalid_itype_insn 3;
     beq;
@@ -249,6 +250,10 @@ let jtype_insn_map : (int -> unit) array =
 
 let sll _ rt rd shamt =
   let result = state.regs.(rt) lsl shamt in
+  state.regs.(rd) <- result
+
+let srl _ rt rd shamt =
+  let result = state.regs.(rt) lsr shamt in
   state.regs.(rd) <- result
 
 let sra _ rt rd shamt =
@@ -317,7 +322,7 @@ let rtype_insn_map : (int -> int -> int -> int -> unit) array =
   [|
     sll;
     invalid_rtype_insn 1;
-    invalid_rtype_insn 2;
+    srl;
     sra;
     sllv;
     invalid_rtype_insn 5;
@@ -474,8 +479,8 @@ let fetch_decode_execute () =
   let pc = pc () in
   let word = fetch () in
   let insn = Decoder.decode word in
-  Printf.printf "%08x %08x: %s\n" pc word (show_insn insn);
-  flush stdout;
+  (* Printf.printf "%08x %08x: %s\n" pc word (show_insn insn);
+     flush stdout; *)
   (match state.load_queue with
   | (reg, value) :: rest ->
       state.regs.(reg) <- value;
