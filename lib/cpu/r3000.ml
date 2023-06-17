@@ -46,7 +46,7 @@ let dump_registers () =
 let pc () = state.cur_pc
 
 (* TODO maybe adjust CPI *)
-let set_pc addr = state.next_pc <- addr
+let set_pc addr = state.next_pc <- addr land 0xFFFFFFFF
 
 let set_state s =
   state.state <- s;
@@ -54,7 +54,7 @@ let set_state s =
 
 let incr_pc () =
   state.cur_pc <- state.next_pc;
-  set_pc ((state.next_pc + 4) land 0xFFFFFFFF)
+  set_pc (state.next_pc + 4)
 
 let fetch () =
   let word = Bus.read_u32 state.cur_pc in
@@ -235,6 +235,20 @@ let calculate_effective_address target =
   let target = target lsl 2 in
   high_bits lor target
 
+let raise_exception kind =
+  let sr = 12 in
+  let cause = 13 in
+  let epc = 14 in
+  let exception_handler =
+    if bit state.cop0_regs.(sr) 22 = 1 then 0xbfc00180 else 0x80000080
+  in
+  (* TODO stack of user bits etc. *)
+  state.cop0_regs.(cause) <-
+    state.cop0_regs.(cause) land lnot 0b1111100 lor (kind lsl 2);
+  state.cop0_regs.(epc) <- state.cur_pc;
+  state.cur_pc <- exception_handler;
+  set_pc (state.cur_pc + 4)
+
 let j target =
   let target = calculate_effective_address target in
   set_pc target
@@ -276,6 +290,10 @@ let jalr rs _ rd _ =
   state.regs.(rd) <- state.next_pc;
   set_pc target;
   my_assert (target land 0x3) 0
+
+let syscall =
+  let syscall = 8 in
+  raise_exception syscall
 
 let mflo _ _ rd _ = state.regs.(rd) <- state.lo
 
@@ -479,8 +497,8 @@ let fetch_decode_execute () =
   let pc = pc () in
   let word = fetch () in
   let insn = Decoder.decode word in
-  (* Printf.printf "%08x %08x: %s\n" pc word (show_insn insn);
-     flush stdout; *)
+  Printf.printf "%08x %08x: %s\n" pc word (show_insn insn);
+  flush stdout;
   (match state.load_queue with
   | (reg, value) :: rest ->
       state.regs.(reg) <- value;
