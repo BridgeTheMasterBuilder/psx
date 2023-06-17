@@ -46,7 +46,7 @@ let dump_registers () =
 let pc () = state.cur_pc
 
 (* TODO maybe adjust CPI *)
-let set_pc addr = state.next_pc <- addr land 0xFFFFFFFF
+let set_pc addr = state.next_pc <- addr
 
 let set_state s =
   state.state <- s;
@@ -54,7 +54,7 @@ let set_state s =
 
 let incr_pc () =
   state.cur_pc <- state.next_pc;
-  set_pc (state.next_pc + 4)
+  set_pc ((state.next_pc + 4) land 0xFFFFFFFF)
 
 let fetch () =
   let word = Bus.read_u32 state.cur_pc in
