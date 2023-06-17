@@ -24,7 +24,9 @@ let decode_rtype opcode word =
 let decode_cop0 opcode word =
   let rt = bits word 16 20 in
   let rd = bits word 11 15 in
-  assert ((16 lsl 26) lor (opcode lsl 21) lor (rt lsl 16) lor (rd lsl 11) = word);
+  (* my_assert
+     ((16 lsl 26) lor (opcode lsl 21) lor (rt lsl 16) lor (rd lsl 11))
+     word; *)
   Cop0 { op = opcode; rt; rd }
 
 (* TODO reserved instruction exception excode 0Ah *)

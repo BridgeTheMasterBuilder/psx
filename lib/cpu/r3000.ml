@@ -150,6 +150,10 @@ let lbu base rt off =
   let result = load base off Bus.read_u8 in
   delay rt result
 
+let lhu base rt off =
+  let result = load base off Bus.read_u16 in
+  delay rt result
+
 let store value base off writer =
   let addr = (state.regs.(base) + i32_of_i16 off) land 0xFFFFFFFF in
   writer addr value
@@ -221,7 +225,7 @@ let itype_insn_map : (int -> int -> int -> unit) array =
     invalid_itype_insn 34;
     with_watched_reads lw;
     with_watched_reads lbu;
-    invalid_itype_insn 37;
+    with_watched_reads lhu;
     invalid_itype_insn 38;
     invalid_itype_insn 39;
     with_watched_writes sb;
@@ -291,13 +295,24 @@ let jalr rs _ rd _ =
   set_pc target;
   my_assert (target land 0x3) 0
 
-let syscall =
+let syscall _ _ _ _ =
   let syscall = 8 in
   raise_exception syscall
 
+let mfhi _ _ rd _ = state.regs.(rd) <- state.hi
+let mthi rs _ _ _ = state.hi <- state.regs.(rs)
 let mflo _ _ rd _ = state.regs.(rd) <- state.lo
+let mtlo rs _ _ _ = state.lo <- state.regs.(rs)
 
 let div rs rt _ _ =
+  let num = int_of_i32 state.regs.(rs) in
+  let denom = int_of_i32 state.regs.(rt) in
+  let q = num / denom land 0xFFFFFFFF in
+  let r = num mod denom land 0xFFFFFFFF in
+  state.lo <- q;
+  state.hi <- r
+
+let divu rs rt _ _ =
   let q = state.regs.(rs) / state.regs.(rt) in
   let r = state.regs.(rs) mod state.regs.(rt) in
   state.lo <- q;
@@ -333,6 +348,15 @@ let or_insn rs rt rd _ =
   let result = state.regs.(rs) lor state.regs.(rt) in
   state.regs.(rd) <- result
 
+let nor rs rt rd _ =
+  let result = lnot (state.regs.(rs) lor state.regs.(rt)) in
+  state.regs.(rd) <- result
+
+let slt rs rt rd _ =
+  let lhs = int_of_i32 state.regs.(rs) in
+  let rhs = int_of_i32 state.regs.(rt) in
+  state.regs.(rd) <- (if lhs < rhs then 1 else 0)
+
 let sltu rs rt rd _ =
   state.regs.(rd) <- (if state.regs.(rs) < state.regs.(rt) then 1 else 0)
 
@@ -350,14 +374,14 @@ let rtype_insn_map : (int -> int -> int -> int -> unit) array =
     jalr;
     invalid_rtype_insn 10;
     invalid_rtype_insn 11;
-    invalid_rtype_insn 12;
+    syscall;
     invalid_rtype_insn 13;
     invalid_rtype_insn 14;
     invalid_rtype_insn 15;
-    invalid_rtype_insn 16;
-    invalid_rtype_insn 17;
+    mfhi;
+    mthi;
     mflo;
-    invalid_rtype_insn 19;
+    mtlo;
     invalid_rtype_insn 20;
     invalid_rtype_insn 21;
     invalid_rtype_insn 22;
@@ -365,7 +389,7 @@ let rtype_insn_map : (int -> int -> int -> int -> unit) array =
     invalid_rtype_insn 24;
     invalid_rtype_insn 25;
     div;
-    invalid_rtype_insn 27;
+    divu;
     invalid_rtype_insn 28;
     invalid_rtype_insn 29;
     invalid_rtype_insn 30;
@@ -377,16 +401,16 @@ let rtype_insn_map : (int -> int -> int -> int -> unit) array =
     and_insn;
     or_insn;
     invalid_rtype_insn 38;
-    invalid_rtype_insn 39;
+    nor;
     invalid_rtype_insn 40;
     invalid_rtype_insn 41;
-    invalid_rtype_insn 42;
+    slt;
     sltu;
   |]
 
 let mfc0 rt rd = state.regs.(rt) <- state.cop0_regs.(rd)
 let mtc0 rt rd = state.cop0_regs.(rd) <- state.regs.(rt)
-let rfe _ _ = failwith "RFE unimplemented"
+let rfe _ _ = (* TODO restore mode bits stack etc. *) ()
 
 let cop0_insn_map : (int -> int -> unit) array =
   [|
@@ -458,10 +482,15 @@ let show_insn = function
         itype_opcode_map.(op)
         (* ) *)
         register_map.(rt) state.regs.(rt) immediate
-  | Itype { op; rs; rt; immediate } ->
+  | Itype { op; rs; rt; immediate } when op = 4 || op = 5 || op = 6 || op = 7 ->
       Printf.sprintf "%-6s $%s(%08x), $%s(%08x), 0x%04x" itype_opcode_map.(op)
         register_map.(rs) state.regs.(rs) register_map.(rt) state.regs.(rt)
         (state.cur_pc + (i32_of_i16 immediate lsl 2))
+  | Itype { op; rs; rt; immediate } ->
+      Printf.sprintf "%-6s $%s(%08x), $%s(%08x), 0x%04x" itype_opcode_map.(op)
+        register_map.(rs) state.regs.(rs) register_map.(rt) state.regs.(rt)
+        (* (state.cur_pc + (i32_of_i16 immediate lsl 2)) *)
+        (i32_of_i16 immediate)
   (* | Itype { op; rs; rt; immediate } ->
       "" *)
   (* Printf.sprintf "%-6s $%s(%08x), 0x%04X" itype_opcode_map.(op)
@@ -491,6 +520,7 @@ let show_insn = function
   | Cop0 { op = 4; rt; rd } ->
       Printf.sprintf "%-6s $%s(%08x), $%s(%08x)" "mtc0" cop0_map.(rd)
         state.cop0_regs.(rd) register_map.(rt) state.regs.(rt)
+  | Cop0 { op = 16; _ } -> "rfe"
   | _ -> failwith ""
 
 let fetch_decode_execute () =

@@ -97,10 +97,11 @@ let write_slow addr data writer =
     if data = 0x1E988 then page_table_w := page_table_w_normal
     else page_table_w := page_table_w_with_cache_isolation;
     fffe0130 := data)
-  else if unmirrored = 0x1F802041 then ()
+  else if unmirrored = 0x1F802041 then (
     (* Sdl.(
-       log_debug Log.category_application
-         "WRITE value %X to POST at %X (unimplemented)" data addr) *)
+       log_debug Log.category_application *)
+    Printf.printf "WRITE value %X to POST at %X (unimplemented)\n" data addr;
+    flush stdout (* ) *))
   else failwithf "Unknown address %X (%X)" addr unmirrored
 
 let read addr reader =
