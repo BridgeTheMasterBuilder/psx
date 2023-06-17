@@ -46,7 +46,7 @@ let dump_registers () =
 let pc () = state.cur_pc
 
 (* TODO maybe adjust CPI *)
-let set_pc addr = state.next_pc <- addr
+let set_pc addr = state.next_pc <- addr land 0xFFFFFFFF
 
 let set_state s =
   state.state <- s;
@@ -54,7 +54,7 @@ let set_state s =
 
 let incr_pc () =
   state.cur_pc <- state.next_pc;
-  set_pc ((state.next_pc + 4) land 0xFFFFFFFF)
+  set_pc (state.next_pc + 4)
 
 let fetch () =
   let word = Bus.read_u32 state.cur_pc in
@@ -100,16 +100,14 @@ let addiu rs rt imm =
   let result = (state.regs.(rs) + i32_of_i16 imm) land 0xFFFFFFFF in
   state.regs.(rt) <- result
 
-let subi rs rt imm =
-  let result =
-    with_overflow_check (fun _ ->
-        (state.regs.(rs) - i32_of_i16 imm) land 0xFFFFFFFF)
-  in
-  state.regs.(rt) <- result
+(* TODO hmm... *)
+let slti rs rt imm =
+  let lhs = int_of_i32 state.regs.(rs) in
+  let rhs = int_of_i16 imm in
+  state.regs.(rt) <- (if lhs < rhs then 1 else 0)
 
-let subiu rs rt imm =
-  let result = (state.regs.(rs) - i32_of_i16 imm) land 0xFFFFFFFF in
-  state.regs.(rt) <- result
+let sltiu rs rt imm =
+  state.regs.(rt) <- (if state.regs.(rs) < i32_of_i16 imm then 1 else 0)
 
 let andi rs rt imm =
   let result = state.regs.(rs) land imm in
@@ -198,8 +196,8 @@ let itype_insn_map : (int -> int -> int -> unit) array =
     bgtz;
     addi;
     addiu;
-    subi;
-    subiu;
+    slti;
+    sltiu;
     andi;
     ori;
     invalid_itype_insn 14;
@@ -485,7 +483,7 @@ let show_insn = function
   | Itype { op; rs; rt; immediate } when op = 4 || op = 5 || op = 6 || op = 7 ->
       Printf.sprintf "%-6s $%s(%08x), $%s(%08x), 0x%04x" itype_opcode_map.(op)
         register_map.(rs) state.regs.(rs) register_map.(rt) state.regs.(rt)
-        (state.cur_pc + (i32_of_i16 immediate lsl 2))
+        ((state.cur_pc + (i32_of_i16 immediate lsl 2)) land 0xFFFFFFFF)
   | Itype { op; rs; rt; immediate } ->
       Printf.sprintf "%-6s $%s(%08x), $%s(%08x), 0x%04x" itype_opcode_map.(op)
         register_map.(rs) state.regs.(rs) register_map.(rt) state.regs.(rt)

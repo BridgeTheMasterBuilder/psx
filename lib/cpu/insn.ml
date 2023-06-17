@@ -10,8 +10,8 @@ let itype_opcode_map =
     "bgtz";
     "addi";
     "addiu";
-    "subi";
-    "subiu";
+    "slti";
+    "sltiu";
     "andi";
     "ori";
     "xori";
